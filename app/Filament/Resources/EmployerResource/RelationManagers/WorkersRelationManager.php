@@ -38,6 +38,19 @@ class WorkersRelationManager extends RelationManager
                 ->label('นามสกุล (ไทย)')
                 ->maxLength(150),
 
+            Forms\Components\TextInput::make('first_name_en')
+                ->label('ชื่อ (EN)')
+                ->required()
+                ->maxLength(150),
+
+            Forms\Components\TextInput::make('last_name_en')
+                ->label('นามสกุล (EN)')
+                ->maxLength(150),
+
+            Forms\Components\DatePicker::make('birth_date')
+                ->label('วันเกิด')
+                ->required(),
+
             Forms\Components\Select::make('nationality_id')
                 ->label('สัญชาติ')
                 ->relationship('nationality', 'name_th')
@@ -46,6 +59,7 @@ class WorkersRelationManager extends RelationManager
 
             Forms\Components\TextInput::make('passport_number')
                 ->label('เลข Passport')
+                ->unique(ignoreRecord: true)
                 ->maxLength(100),
 
             Forms\Components\DatePicker::make('passport_expiry')

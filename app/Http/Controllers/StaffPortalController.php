@@ -26,6 +26,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
@@ -1584,7 +1585,7 @@ class StaffPortalController extends Controller
             'birth_date' => 'required|date',
             'gender' => 'nullable|string|max:20',
 
-            'passport_number' => 'nullable|string|max:100',
+            'passport_number' => ['nullable', 'string', 'max:100', Rule::unique('workers', 'passport_number')],
             'passport_expiry' => 'nullable|date',
             'wp_number' => 'nullable|string|max:100',
             'wp_expiry' => 'nullable|date',
@@ -1693,7 +1694,12 @@ class StaffPortalController extends Controller
             'birth_date' => 'required|date',
             'gender' => 'nullable|string|max:20',
 
-            'passport_number' => 'nullable|string|max:100',
+            'passport_number' => [
+                'nullable',
+                'string',
+                'max:100',
+                Rule::unique('workers', 'passport_number')->ignore($worker->id),
+            ],
             'passport_expiry' => 'nullable|date',
             'wp_number' => 'nullable|string|max:100',
             'wp_expiry' => 'nullable|date',

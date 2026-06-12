@@ -107,10 +107,11 @@ class WorkerResource extends Resource
                         ->schema([
                             Forms\Components\TextInput::make('passport_number')
                                 ->label('เลขหนังสือเดินทาง')
+                                ->unique(ignoreRecord: true)
                                 ->maxLength(100),
 
                             Forms\Components\DatePicker::make('passport_expiry')
-                                ->label('วันหมดอายุ Passport')
+                                ->label('วันหมดอายุ Passport'),
                         ]),
 
                     Forms\Components\FileUpload::make('passport_file')
@@ -124,6 +125,7 @@ class WorkerResource extends Resource
                         ->schema([
                             Forms\Components\TextInput::make('wp_number')
                                 ->label('เลข Work Permit')
+                                ->unique(ignoreRecord: true)
                                 ->maxLength(100),
 
                             Forms\Components\DatePicker::make('wp_expiry')

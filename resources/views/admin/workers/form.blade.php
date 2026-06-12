@@ -84,8 +84,8 @@
                             class="h-12 w-full rounded-lg border border-slate-100 bg-slate-50/50 px-4 text-sm font-bold font-mono outline-none focus:border-[#c9a227] focus:bg-white transition-all">
                     </div>
                     <div class="md:col-span-2 space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Assign นายจ้าง</label>
-                        <select name="employer_id" class="h-12 w-full rounded-lg border border-slate-100 bg-slate-50/50 px-4 text-sm font-bold outline-none focus:border-[#c9a227] focus:bg-white transition-all appearance-none">
+                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Assign นายจ้าง <span class="text-rose-500">*</span></label>
+                        <select name="employer_id" required class="h-12 w-full rounded-lg border border-slate-100 bg-slate-50/50 px-4 text-sm font-bold outline-none focus:border-[#c9a227] focus:bg-white transition-all appearance-none">
                             <option value="">-- Select ลูกค้า / นายจ้าง --</option>
                             @foreach ($employers as $id => $name)
                                 <option value="{{ $id }}" @selected(old('employer_id', $worker?->employer_id) == $id)>{{ $name }}</option>

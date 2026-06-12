@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 use App\Models\JobOrder;
 use App\Models\Employer;
 use App\Models\Service;
@@ -1339,19 +1340,42 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAdmin::class])->prefix('/m
         $validated = $request->validate([
             'full_name_th' => ['required', 'string', 'max:255'],
             'full_name_en' => ['required', 'string', 'max:255'],
-            'passport_number' => ['nullable', 'string', 'unique:workers'],
-            'wp_number' => ['nullable', 'string'],
+            'passport_number' => ['nullable', 'string', 'unique:workers,passport_number'],
+            'wp_number' => ['nullable', 'string', 'unique:workers,wp_number'],
             'visa_expiry' => ['nullable', 'date'],
             'passport_expiry' => ['nullable', 'date'],
             'wp_expiry' => ['nullable', 'date'],
             'report_90_days_due' => ['nullable', 'date'],
-            'employer_id' => ['nullable', 'exists:employers,id'],
+            'employer_id' => ['required', 'exists:employers,id'],
             'photo_path' => UploadLimits::imageRules(),
             'passport_file' => UploadLimits::documentRules(),
             'wp_file' => UploadLimits::documentRules(),
             'visa_file' => UploadLimits::documentRules(),
             'report_90_days_file' => UploadLimits::documentRules(),
         ]);
+
+        $splitName = function (string $name): array {
+            $parts = preg_split('/\s+/', trim($name)) ?: [];
+
+            if (count($parts) <= 1) {
+                return [$name, null];
+            }
+
+            $lastName = array_pop($parts);
+            $firstName = trim(implode(' ', $parts));
+
+            return [$firstName !== '' ? $firstName : $name, $lastName];
+        };
+
+        [$firstNameTh, $lastNameTh] = $splitName($validated['full_name_th']);
+        [$firstNameEn, $lastNameEn] = $splitName($validated['full_name_en']);
+
+        $validated['first_name_th'] = $firstNameTh;
+        $validated['last_name_th'] = $lastNameTh;
+        $validated['first_name_en'] = $firstNameEn;
+        $validated['last_name_en'] = $lastNameEn;
+
+        unset($validated['full_name_th'], $validated['full_name_en']);
 
         // Handle file uploads
         if ($request->hasFile('photo_path')) {
@@ -1385,19 +1409,42 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAdmin::class])->prefix('/m
         $validated = $request->validate([
             'full_name_th' => ['required', 'string', 'max:255'],
             'full_name_en' => ['required', 'string', 'max:255'],
-            'passport_number' => ['nullable', 'string', 'unique:workers,passport_number,' . $worker->id],
-            'wp_number' => ['nullable', 'string'],
+            'passport_number' => ['nullable', 'string', Rule::unique('workers', 'passport_number')->ignore($worker->id)],
+            'wp_number' => ['nullable', 'string', Rule::unique('workers', 'wp_number')->ignore($worker->id)],
             'visa_expiry' => ['nullable', 'date'],
             'passport_expiry' => ['nullable', 'date'],
             'wp_expiry' => ['nullable', 'date'],
             'report_90_days_due' => ['nullable', 'date'],
-            'employer_id' => ['nullable', 'exists:employers,id'],
+            'employer_id' => ['required', 'exists:employers,id'],
             'photo_path' => UploadLimits::imageRules(),
             'passport_file' => UploadLimits::documentRules(),
             'wp_file' => UploadLimits::documentRules(),
             'visa_file' => UploadLimits::documentRules(),
             'report_90_days_file' => UploadLimits::documentRules(),
         ]);
+
+        $splitName = function (string $name): array {
+            $parts = preg_split('/\s+/', trim($name)) ?: [];
+
+            if (count($parts) <= 1) {
+                return [$name, null];
+            }
+
+            $lastName = array_pop($parts);
+            $firstName = trim(implode(' ', $parts));
+
+            return [$firstName !== '' ? $firstName : $name, $lastName];
+        };
+
+        [$firstNameTh, $lastNameTh] = $splitName($validated['full_name_th']);
+        [$firstNameEn, $lastNameEn] = $splitName($validated['full_name_en']);
+
+        $validated['first_name_th'] = $firstNameTh;
+        $validated['last_name_th'] = $lastNameTh;
+        $validated['first_name_en'] = $firstNameEn;
+        $validated['last_name_en'] = $lastNameEn;
+
+        unset($validated['full_name_th'], $validated['full_name_en']);
 
         // Handle file uploads
         if ($request->hasFile('photo_path')) {
