@@ -28,7 +28,7 @@
         ['label' => 'รายงาน 90 วัน', 'date' => $worker->report_90_days_due, 'icon' => 'calendar-clock'],
     ];
 
-    $passportAttachment = $worker->passportAttachment();
+    $legacyAttachments = $worker->legacyAttachments();
     $otherDocuments = $worker->documents->reject(fn ($document) => $worker->isPassportDocument($document))->values();
 
     $initials = mb_substr($worker->first_name_th ?: $worker->first_name_en ?: '-', 0, 1)
@@ -248,24 +248,33 @@
                         </div>
 
                         <div class="mt-6 space-y-4">
-                            @if ($passportAttachment || $otherDocuments->isNotEmpty())
-                                @if ($passportAttachment)
+                            @if ($legacyAttachments->contains(fn ($attachment) => filled($attachment['file'])) || $otherDocuments->isNotEmpty())
+                                @if ($legacyAttachments->contains(fn ($attachment) => filled($attachment['file'])))
                                     <div class="rounded-2xl border border-blue-100 bg-blue-50 p-5">
-                                        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                            <div>
-                                                <p class="text-base font-semibold text-blue-900">เอกสาร Passport</p>
-                                                <p class="mt-2 text-sm text-blue-700">
-                                                    หมดอายุ {{ $passportAttachment['expiry_date']?->format('d/m/Y') ?: $worker->passport_expiry?->format('d/m/Y') ?: '-' }}
-                                                </p>
-                                                @if (! empty($passportAttachment['note']))
-                                                    <p class="mt-2 text-sm text-blue-600">{{ $passportAttachment['note'] }}</p>
+                                        <p class="text-base font-semibold text-blue-900">เอกสารแนบ (Attachments)</p>
+                                        <div class="mt-4 space-y-3">
+                                            @foreach ($legacyAttachments as $attachment)
+                                                @if (! filled($attachment['file']))
+                                                    @continue
                                                 @endif
-                                            </div>
-                                            <a href="{{ $passportAttachment['url'] }}" target="_blank"
-                                                class="inline-flex items-center gap-3 rounded-full bg-white px-4 py-2 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-100">
-                                                <i data-lucide="external-link" class="h-4 w-4"></i>
-                                                เปิดไฟล์
-                                            </a>
+                                                <div class="rounded-xl border border-blue-100 bg-white/70 p-4">
+                                                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                                        <div>
+                                                            <p class="text-sm font-semibold text-blue-900">
+                                                                {{ $attachment['name'] }}
+                                                            </p>
+                                                            <p class="mt-2 text-sm text-blue-700">
+                                                                หมดอายุ {{ $attachment['expiry_date']?->format('d/m/Y') ?: '-' }}
+                                                            </p>
+                                                        </div>
+                                                        <a href="{{ $attachment['url'] }}" target="_blank"
+                                                            class="inline-flex items-center gap-3 rounded-full bg-white px-4 py-2 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-100">
+                                                            <i data-lucide="external-link" class="h-4 w-4"></i>
+                                                            เปิดไฟล์
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            @endforeach
                                         </div>
                                     </div>
                                 @endif

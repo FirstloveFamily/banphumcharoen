@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 
 class Worker extends Model
 {
@@ -94,35 +95,56 @@ class Worker extends Model
             || str_contains($name, 'หนังสือเดินทาง');
     }
 
-    public function passportAttachment(): ?array
+    public function passportAttachments(): Collection
     {
         $documents = $this->relationLoaded('documents')
             ? $this->documents
             : $this->documents()->with('documentMaster')->get();
 
-        $passportDocument = $documents->first(fn (WorkerDocument $document): bool => $this->isPassportDocument($document));
-
-        if ($passportDocument) {
-            return [
-                'label' => $passportDocument->documentMaster?->name ?: 'ไฟล์ Passport',
-                'url' => asset('storage/' . $passportDocument->file_path),
-                'expiry_date' => $passportDocument->expiry_date,
-                'note' => $passportDocument->note,
-                'source' => 'worker_document',
-            ];
-        }
+        $attachments = $documents
+            ->filter(fn (WorkerDocument $document): bool => $this->isPassportDocument($document))
+            ->map(function (WorkerDocument $document): array {
+                return [
+                    'label' => $document->documentMaster?->name ?: 'ไฟล์ Passport',
+                    'url' => asset('storage/' . $document->file_path),
+                    'expiry_date' => $document->expiry_date,
+                    'note' => $document->note,
+                    'source' => 'worker_document',
+                ];
+            })
+            ->values();
 
         if ($this->passport_file) {
-            return [
+            $attachments->push([
                 'label' => 'Passport Copy',
                 'url' => asset('storage/' . $this->passport_file),
                 'expiry_date' => $this->passport_expiry,
                 'note' => null,
                 'source' => 'legacy_field',
-            ];
+            ]);
         }
 
-        return null;
+        return $attachments;
+    }
+
+    public function passportAttachment(): ?array
+    {
+        return $this->passportAttachments()->first();
+    }
+
+    public function legacyAttachments(): Collection
+    {
+        return collect([
+            ['name' => 'Passport Copy', 'file' => $this->passport_file, 'expiry_date' => $this->passport_expiry],
+            ['name' => 'Work Permit Copy', 'file' => $this->wp_file, 'expiry_date' => $this->wp_expiry],
+            ['name' => 'Visa Copy', 'file' => $this->visa_file, 'expiry_date' => $this->visa_expiry],
+            ['name' => '90-Days Report', 'file' => $this->report_90_days_file, 'expiry_date' => $this->report_90_days_due],
+        ])->map(fn (array $attachment): array => [
+            'name' => $attachment['name'],
+            'file' => $attachment['file'],
+            'url' => $attachment['file'] ? asset('storage/' . $attachment['file']) : null,
+            'expiry_date' => $attachment['expiry_date'],
+        ]);
     }
 
     public function jobOrders(): HasMany

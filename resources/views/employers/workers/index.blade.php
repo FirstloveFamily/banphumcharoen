@@ -120,7 +120,7 @@
                                 @php
                                     $initials = mb_substr($worker->first_name_th ?: $worker->first_name_en ?: '-', 0, 1)
                                         . mb_substr($worker->last_name_th ?: $worker->last_name_en ?: '', 0, 1);
-                                    $passportAttachment = $worker->passportAttachment();
+                                    $passportAttachments = $worker->passportAttachments();
                                 @endphp
                                 <tr class="table-row">
                                     <td class="px-6 py-5">
@@ -144,12 +144,16 @@
                                     <td class="px-6 py-5">
                                         <p class="font-semibold text-slate-700">{{ $worker->passport_number ?: '-' }}</p>
                                         <p class="mt-1 text-sm text-slate-400">{{ $worker->passport_expiry?->format('d/m/Y') ?: '-' }}</p>
-                                        @if ($passportAttachment)
-                                            <a href="{{ $passportAttachment['url'] }}" target="_blank"
-                                                class="mt-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100">
-                                                <i data-lucide="paperclip" class="h-3.5 w-3.5"></i>
-                                                {{ $passportAttachment['label'] }}
-                                            </a>
+                                        @if ($passportAttachments->isNotEmpty())
+                                            <div class="mt-3 flex flex-wrap gap-2">
+                                                @foreach ($passportAttachments as $passportAttachment)
+                                                    <a href="{{ $passportAttachment['url'] }}" target="_blank"
+                                                        class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100">
+                                                        <i data-lucide="paperclip" class="h-3.5 w-3.5"></i>
+                                                        {{ $passportAttachment['label'] }}
+                                                    </a>
+                                                @endforeach
+                                            </div>
                                         @else
                                             <p class="mt-3 text-xs font-medium text-slate-300">ไม่มีไฟล์พาสปอร์ต</p>
                                         @endif
