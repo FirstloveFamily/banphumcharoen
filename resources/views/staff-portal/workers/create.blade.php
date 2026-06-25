@@ -7,10 +7,64 @@
         backdrop-filter: blur(10px);
         border: 1px solid rgba(226, 232, 240, 0.8);
     }
+    .employer-autocomplete {
+        position: relative;
+    }
+    .employer-autocomplete-panel {
+        position: absolute;
+        z-index: 40;
+        left: 0;
+        right: 0;
+        top: calc(100% + 0.5rem);
+        max-height: 18rem;
+        overflow: auto;
+        border: 1px solid rgba(11, 47, 82, 0.12);
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 1rem;
+        box-shadow: 0 20px 40px rgba(11, 47, 82, 0.12);
+        backdrop-filter: blur(14px);
+    }
+    .employer-autocomplete-item {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        width: 100%;
+        padding: 0.875rem 1rem;
+        text-align: left;
+        transition: background-color 160ms ease;
+    }
+    .employer-autocomplete-item:hover,
+    .employer-autocomplete-item[aria-selected="true"] {
+        background: rgba(219, 234, 254, 0.75);
+    }
+    .employer-autocomplete-item + .employer-autocomplete-item {
+        border-top: 1px solid rgba(226, 232, 240, 0.9);
+    }
 </style>
 @endpush
 
 @section('content')
+    @php
+        $selectedEmployerId = old('employer_id', request('employer_id'));
+        $selectedEmployer = $employers->firstWhere('id', (int) $selectedEmployerId);
+        $selectedEmployerLabel = $selectedEmployer?->company_name ?? '';
+        $selectedEmployerSubLabel = $selectedEmployer?->company_code ?? '';
+        $employerOptions = $employers->map(fn ($employer) => [
+            'id' => $employer->id,
+            'company_name' => $employer->company_name,
+            'company_code' => $employer->company_code,
+            'contact_name' => $employer->contact_name,
+            'search' => mb_strtolower(trim(implode(' ', array_filter([
+                $employer->company_name,
+                $employer->company_code,
+                $employer->contact_name,
+                $employer->phone,
+                $employer->email,
+            ])))),
+        ])->values();
+    @endphp
+
     <div class="space-y-8 max-w-5xl mx-auto">
         <!-- Header Section -->
         <header class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -57,12 +111,40 @@
                 <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                     <div class="lg:col-span-1 space-y-2">
                         <label class="text-xs font-bold uppercase tracking-wider text-slate-500">บริษัทนายจ้าง / ต้นสังกัด <span class="text-rose-500">*</span></label>
-                        <select name="employer_id" required class="h-12 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all appearance-none">
-                            <option value="">-- เลือกบริษัท --</option>
-                            @foreach($employers as $employer)
-                                <option value="{{ $employer->id }}" @selected(old('employer_id', request('employer_id')) == $employer->id)>{{ $employer->company_name }}</option>
-                            @endforeach
-                        </select>
+                        <div
+                            class="employer-autocomplete"
+                            data-employer-autocomplete
+                            data-employers='@json($employerOptions)'
+                        >
+                            <input type="hidden" name="employer_id" value="{{ $selectedEmployerId }}">
+                            <div class="relative">
+                                <input
+                                    type="text"
+                                    data-employer-input
+                                    value="{{ $selectedEmployerLabel }}"
+                                    placeholder="พิมพ์ชื่อบริษัท, รหัสบริษัท, ผู้ติดต่อ..."
+                                    autocomplete="off"
+                                    required
+                                    class="h-12 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 pr-11 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all"
+                                >
+                                <button
+                                    type="button"
+                                    data-employer-clear
+                                    class="absolute right-2 top-1/2 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                    aria-label="ล้างบริษัทนายจ้าง"
+                                >
+                                    <i data-lucide="x" class="h-4 w-4"></i>
+                                </button>
+                            </div>
+                            <div data-employer-panel class="employer-autocomplete-panel hidden" role="listbox" aria-label="รายชื่อบริษัทนายจ้าง"></div>
+                        </div>
+                        <p data-employer-hint class="text-[11px] text-slate-400">
+                            @if($selectedEmployerLabel)
+                                เลือกไว้แล้ว: {{ $selectedEmployerLabel }}{{ $selectedEmployerSubLabel ? ' (' . $selectedEmployerSubLabel . ')' : '' }}
+                            @else
+                                พิมพ์เพื่อค้นหาแล้วคลิกเลือกจากรายการ
+                            @endif
+                        </p>
                     </div>
                     <div class="space-y-2">
                         <label class="text-xs font-bold uppercase tracking-wider text-slate-500">สัญชาติ <span class="text-rose-500">*</span></label>
@@ -269,3 +351,229 @@
         </form>
     </div>
 @endsection
+
+@push('scripts')
+    <script>
+        (() => {
+            const root = document.querySelector('[data-employer-autocomplete]');
+            if (! root) return;
+
+            const form = root.closest('form');
+            const input = root.querySelector('[data-employer-input]');
+            const hidden = root.querySelector('input[type="hidden"][name="employer_id"]');
+            const panel = root.querySelector('[data-employer-panel]');
+            const clearButton = root.querySelector('[data-employer-clear]');
+            const hint = root.querySelector('[data-employer-hint]');
+            const employers = JSON.parse(root.dataset.employers || '[]');
+
+            let activeIndex = -1;
+
+            const normalize = (value) => String(value ?? '').trim().toLowerCase();
+            const escapeHtml = (value) => String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+
+            const setHint = (employer) => {
+                if (! hint) return;
+
+                if (! employer) {
+                    hint.textContent = 'พิมพ์เพื่อค้นหาแล้วคลิกเลือกจากรายการ';
+                    return;
+                }
+
+                const suffix = employer.company_code ? ` (${employer.company_code})` : '';
+                hint.textContent = `เลือกไว้แล้ว: ${employer.company_name}${suffix}`;
+            };
+
+            const updateClearButton = () => {
+                clearButton.classList.toggle('hidden', input.value.trim() === '' && hidden.value === '');
+            };
+
+            const getMatches = () => {
+                const query = normalize(input.value);
+                const items = employers.filter((employer) => {
+                    const haystack = normalize([
+                        employer.company_name,
+                        employer.company_code,
+                        employer.contact_name,
+                        employer.search,
+                    ].filter(Boolean).join(' '));
+
+                    return query === '' || haystack.includes(query);
+                });
+
+                return items.slice(0, 8);
+            };
+
+            const closePanel = () => {
+                panel.classList.add('hidden');
+                panel.innerHTML = '';
+                activeIndex = -1;
+            };
+
+            const openPanel = () => {
+                panel.classList.remove('hidden');
+            };
+
+            const render = () => {
+                const matches = getMatches();
+
+                if (! matches.length) {
+                    panel.innerHTML = `
+                        <div class="px-4 py-4 text-sm text-slate-500">
+                            ไม่พบบริษัทที่ตรงกับคำค้นหา
+                        </div>
+                    `;
+                    openPanel();
+                    updateClearButton();
+                    return;
+                }
+
+                panel.innerHTML = matches.map((employer, index) => {
+                    const subtitle = [employer.company_code, employer.contact_name].filter(Boolean).join(' · ') || 'ไม่มีรหัสบริษัท';
+                    return `
+                        <button
+                            type="button"
+                            class="employer-autocomplete-item"
+                            role="option"
+                            data-id="${String(employer.id)}"
+                            data-index="${index}"
+                            aria-selected="${index === activeIndex ? 'true' : 'false'}"
+                        >
+                            <span class="min-w-0">
+                                <span class="block truncate text-sm font-bold text-slate-900">${escapeHtml(employer.company_name)}</span>
+                                <span class="mt-0.5 block truncate text-xs font-medium text-slate-500">${escapeHtml(subtitle)}</span>
+                            </span>
+                            <span class="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                                เลือก
+                            </span>
+                        </button>
+                    `;
+                }).join('');
+
+                openPanel();
+                updateClearButton();
+            };
+
+            const selectEmployer = (employer) => {
+                hidden.value = employer ? String(employer.id) : '';
+                input.value = employer ? employer.company_name : '';
+                input.setCustomValidity('');
+                setHint(employer || null);
+                updateClearButton();
+                closePanel();
+            };
+
+            input.addEventListener('input', () => {
+                hidden.value = '';
+                input.setCustomValidity('');
+                setHint(null);
+                render();
+            });
+
+            input.addEventListener('focus', () => {
+                render();
+            });
+
+            input.addEventListener('keydown', (event) => {
+                const options = [...panel.querySelectorAll('[data-id]')];
+                if (! options.length || panel.classList.contains('hidden')) return;
+
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    activeIndex = Math.min(activeIndex + 1, options.length - 1);
+                } else if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    activeIndex = Math.max(activeIndex - 1, 0);
+                } else if (event.key === 'Enter') {
+                    if (activeIndex >= 0 && options[activeIndex]) {
+                        event.preventDefault();
+                        options[activeIndex].click();
+                    }
+                    return;
+                } else if (event.key === 'Escape') {
+                    closePanel();
+                    return;
+                } else {
+                    return;
+                }
+
+                options.forEach((option, index) => {
+                    option.setAttribute('aria-selected', index === activeIndex ? 'true' : 'false');
+                });
+
+                if (options[activeIndex]) {
+                    options[activeIndex].scrollIntoView({ block: 'nearest' });
+                }
+            });
+
+            panel.addEventListener('click', (event) => {
+                const item = event.target.closest('[data-id]');
+                if (! item) return;
+
+                const employer = employers.find((candidate) => String(candidate.id) === item.dataset.id);
+                if (employer) {
+                    selectEmployer(employer);
+                }
+            });
+
+            clearButton.addEventListener('click', () => {
+                selectEmployer(null);
+                input.focus();
+            });
+
+            document.addEventListener('click', (event) => {
+                if (! root.contains(event.target)) {
+                    closePanel();
+                }
+            });
+
+            input.addEventListener('blur', () => {
+                window.setTimeout(() => {
+                    if (root.contains(document.activeElement)) {
+                        return;
+                    }
+
+                    const selected = employers.find((candidate) => String(candidate.id) === String(hidden.value));
+                    if (selected && input.value.trim() === '') {
+                        input.value = selected.company_name;
+                    }
+
+                    updateClearButton();
+                    closePanel();
+                }, 120);
+            });
+
+            if (hidden.value) {
+                const selected = employers.find((candidate) => String(candidate.id) === String(hidden.value));
+                if (selected) {
+                    setHint(selected);
+                }
+            } else {
+                setHint(null);
+            }
+
+            if (input.value.trim() !== '') {
+                updateClearButton();
+            }
+
+            if (form) {
+                form.addEventListener('submit', (event) => {
+                    if (hidden.value) {
+                        input.setCustomValidity('');
+                        return;
+                    }
+
+                    input.setCustomValidity('กรุณาเลือกบริษัทนายจ้างจากรายการ');
+                    input.reportValidity();
+                    event.preventDefault();
+                });
+            }
+
+            updateClearButton();
+        })();
+    </script>
+@endpush
