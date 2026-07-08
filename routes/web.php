@@ -4,9 +4,12 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
+use App\Models\User;
 use App\Models\JobOrder;
 use App\Models\Employer;
 use App\Models\Service;
@@ -2070,14 +2073,19 @@ Route::post('/login', function (Request $request) {
 
     $remember = $request->boolean('remember');
     $portal = $credentials['portal'];
-    unset($credentials['portal']);
+    $email = Str::lower(trim($credentials['email']));
 
-    if (! Auth::attempt($credentials, $remember)) {
+    $user = User::query()
+        ->whereRaw('lower(email) = ?', [$email])
+        ->first();
+
+    if (! $user || ! Hash::check($credentials['password'], $user->password)) {
         throw ValidationException::withMessages([
             'email' => 'อีเมลหรือรหัสผ่านไม่ถูกต้อง',
         ]);
     }
 
+    Auth::login($user, $remember);
     $request->session()->regenerate();
 
     $user = $request->user();
