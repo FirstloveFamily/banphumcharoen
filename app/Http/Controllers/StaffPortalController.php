@@ -958,7 +958,7 @@ class StaffPortalController extends Controller
         $workers = Worker::query()
             ->with('employer')
             ->active()
-            ->orderBy('first_name_th')
+            ->orderBy('first_name_en')
             ->get();
 
         $services = Service::query()

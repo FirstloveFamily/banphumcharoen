@@ -178,12 +178,12 @@
                                                 class="h-12 w-12 rounded-full object-cover border-2 border-white shadow-sm">
                                         @else
                                             <div class="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-400 border border-slate-200 uppercase text-[10px]">
-                                                {{ mb_substr($worker->first_name_th ?: $worker->first_name_en, 0, 1) }}{{ mb_substr($worker->last_name_th ?: $worker->last_name_en, 0, 1) }}
+                                                {{ mb_substr($worker->first_name_en ?: $worker->first_name_th, 0, 1) }}{{ mb_substr($worker->last_name_en ?: $worker->last_name_th, 0, 1) }}
                                             </div>
                                         @endif
                                         <div class="min-w-0">
                                             <div class="flex items-center gap-2">
-                                                <p class="font-bold text-slate-900 truncate">{{ $worker->full_name_th ?: $worker->full_name_en }}</p>
+                                                <p class="font-bold text-slate-900 truncate">{{ $worker->full_name_en ?: $worker->full_name_th }}</p>
                                                 @if(! $worker->is_active)
                                                     <span class="h-1.5 w-1.5 rounded-full bg-slate-300"></span>
                                                     <span class="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Inactive</span>
