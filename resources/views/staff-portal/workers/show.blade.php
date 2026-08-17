@@ -23,6 +23,12 @@
             return ['label' => $date->format('d/m/Y'), 'class' => 'text-slate-700', 'badge' => 'bg-blue-50 text-blue-600 ring-blue-500/20'];
         };
 
+        $workflowLabels = $workflowStatuses->keyBy('code')->map(fn ($status) => [
+            'label' => $status->name_th,
+            'class' => $status->color_class,
+        ])->all();
+        $workflowLabels['awaiting_upload'] = ['label' => 'รอส่งเอกสาร', 'class' => 'bg-slate-100 text-slate-500'];
+
         $jobStatusClasses = [
             'pending' => 'bg-blue-50 text-blue-700 ring-blue-600/20',
             'processing' => 'bg-indigo-50 text-indigo-700 ring-indigo-600/20',
@@ -209,15 +215,22 @@
                         <div class="space-y-3">
                             @php
                                 $files = [
-                                    ['name' => 'Passport Copy', 'file' => $worker->passport_file],
-                                    ['name' => 'Work Permit Copy', 'file' => $worker->wp_file],
-                                    ['name' => 'Visa Copy', 'file' => $worker->visa_file],
-                                    ['name' => '90-Days Report', 'file' => $worker->report_90_days_file],
+                                    ['name' => 'Passport Copy', 'code' => 'PASSPORT', 'file' => $worker->passport_file],
+                                    ['name' => 'Work Permit Copy', 'code' => 'WORK_PERMIT', 'file' => $worker->wp_file],
+                                    ['name' => 'Visa Copy', 'code' => 'VISA', 'file' => $worker->visa_file],
+                                    ['name' => '90-Days Report', 'code' => 'REPORT_90', 'file' => $worker->report_90_days_file],
                                 ];
                             @endphp
                             @foreach($files as $f)
+                                @php
+                                    $legacyDocument = $worker->documents->first(fn ($document) => $document->documentMaster?->code === $f['code']);
+                                    $legacyWorkflow = $workflowLabels[$legacyDocument?->status ?: ($f['file'] ? 'approved' : 'awaiting_upload')];
+                                @endphp
                                 <div class="flex items-center justify-between rounded-2xl bg-slate-50/50 p-4 border border-slate-100/50">
-                                    <span class="text-sm font-bold text-slate-700">{{ $f['name'] }}</span>
+                                    <div>
+                                        <span class="text-sm font-bold text-slate-700">{{ $f['name'] }}</span>
+                                        <span class="mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold {{ $legacyWorkflow['class'] }}">{{ $legacyWorkflow['label'] }}</span>
+                                    </div>
                                     @if($f['file'])
                                         <a href="{{ asset('storage/' . $f['file']) }}" target="_blank" 
                                             class="flex items-center gap-2 rounded-xl bg-white px-3 py-1.5 text-[10px] font-black uppercase text-blue-600 shadow-sm hover:bg-blue-600 hover:text-white transition-all">
@@ -339,6 +352,12 @@
                                     <div class="flex items-start justify-between gap-3">
                                         <span class="text-slate-500">หมายเหตุ</span>
                                         <span class="max-w-[14rem] text-right text-slate-700">{{ $document->note ?: '-' }}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="text-slate-500">สถานะดำเนินการ</span>
+                                        <span class="rounded-full px-2 py-1 text-[10px] font-bold {{ $workflowLabels[$document->status]['class'] ?? $workflowLabels['pending_review']['class'] }}">
+                                            {{ $workflowLabels[$document->status]['label'] ?? 'รอตรวจสอบ' }}
+                                        </span>
                                     </div>
                                 </div>
 

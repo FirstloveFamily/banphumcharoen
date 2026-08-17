@@ -24,6 +24,7 @@ use App\Models\NewsPost;
 use App\Models\ServiceChecklist;
 use App\Http\Controllers\StaffPortalController;
 use App\Http\Controllers\LineWebhookController;
+use App\Http\Controllers\EmployerWorkerRequestController;
 use App\Filament\Pages\WorkersExpiryDashboard;
 use App\Support\UploadLimits;
 
@@ -1841,6 +1842,12 @@ Route::get('/employers/workers', function (Request $request) {
     return view('employers.workers.index', compact('workers', 'keyword', 'expiryStatus'));
 })->middleware('auth')->name('employers.workers.index');
 
+Route::get('/employers/workers/request', [EmployerWorkerRequestController::class, 'create'])
+    ->middleware('auth')->name('employers.workers.request.create');
+
+Route::post('/employers/workers/request', [EmployerWorkerRequestController::class, 'store'])
+    ->middleware('auth')->name('employers.workers.request.store');
+
 Route::get('/employers/workers/{worker}', function (Worker $worker) {
     $employerIds = Auth::user()->employers()->pluck('employers.id');
 
@@ -1878,7 +1885,15 @@ Route::get('/employers/jobs/create', function () {
         ->orderBy('name')
         ->get();
 
-    return view('employers.job-create', compact('employers', 'workers', 'services'));
+    return view('staff-portal.job-orders.create', [
+        'employers' => $employers,
+        'workers' => $workers,
+        'services' => $services,
+        'employerId' => (int) old('employer_id', $employers->first()?->id),
+        'workerId' => (int) old('worker_id', 0),
+        'serviceId' => (int) old('service_id', 0),
+        'requestMode' => true,
+    ]);
 })->middleware('auth')->name('employers.jobs.create');
 
 Route::post('/employers/jobs', function (Request $request) {
@@ -2163,6 +2178,18 @@ Route::post('/staff-portal/settings', [StaffPortalController::class, 'updateSett
     ->middleware('auth')
     ->name('staff.portal.settings.update');
 
+Route::get('/staff-portal/settings/document-statuses', [StaffPortalController::class, 'documentStatuses'])
+    ->middleware('auth')
+    ->name('staff.portal.document-statuses.index');
+
+Route::post('/staff-portal/settings/document-statuses', [StaffPortalController::class, 'documentStatusStore'])
+    ->middleware('auth')
+    ->name('staff.portal.document-statuses.store');
+
+Route::put('/staff-portal/settings/document-statuses/{workerDocumentStatus}', [StaffPortalController::class, 'documentStatusUpdate'])
+    ->middleware('auth')
+    ->name('staff.portal.document-statuses.update');
+
 Route::get('/staff-portal/users', [StaffPortalController::class, 'users'])
     ->middleware('auth')
     ->name('staff.portal.users.index');
@@ -2389,6 +2416,29 @@ Route::get('/staff-portal/workers', [StaffPortalController::class, 'workers'])
     ->middleware('auth')
     ->name('staff.portal.workers.index');
 
+Route::get('/staff-portal/workers/active', [StaffPortalController::class, 'workers'])
+    ->defaults('worker_status', 'active')
+    ->middleware('auth')
+    ->name('staff.portal.workers.active');
+
+Route::get('/staff-portal/workers/inactive', [StaffPortalController::class, 'workers'])
+    ->defaults('worker_status', 'inactive')
+    ->middleware('auth')
+    ->name('staff.portal.workers.inactive');
+
+Route::get('/staff-portal/workers/export', [StaffPortalController::class, 'workersExport'])
+    ->middleware('auth')
+    ->name('staff.portal.workers.export');
+
+Route::get('/staff-portal/worker-registration-requests', [StaffPortalController::class, 'workerRegistrationRequests'])
+    ->middleware('auth')->name('staff.portal.worker-registration-requests.index');
+
+Route::post('/staff-portal/worker-registration-requests/{registrationRequest}/approve', [StaffPortalController::class, 'workerRegistrationRequestApprove'])
+    ->middleware('auth')->name('staff.portal.worker-registration-requests.approve');
+
+Route::post('/staff-portal/worker-registration-requests/{registrationRequest}/reject', [StaffPortalController::class, 'workerRegistrationRequestReject'])
+    ->middleware('auth')->name('staff.portal.worker-registration-requests.reject');
+
 Route::get('/staff-portal/workers/create', [StaffPortalController::class, 'workerCreate'])
     ->middleware('auth')
     ->name('staff.portal.workers.create');
@@ -2420,6 +2470,10 @@ Route::post('/staff-portal/workers/{worker}/documents', [StaffPortalController::
 Route::delete('/staff-portal/workers/{worker}/documents/{workerDocument}', [StaffPortalController::class, 'workerDocumentDestroy'])
     ->middleware('auth')
     ->name('staff.portal.workers.documents.destroy');
+
+Route::put('/staff-portal/workers/{worker}/documents/{workerDocument}/status', [StaffPortalController::class, 'workerDocumentStatusUpdate'])
+    ->middleware('auth')
+    ->name('staff.portal.workers.documents.status.update');
 
 Route::get('/staff-portal/delivery-sheets', [StaffPortalController::class, 'deliverySheets'])
     ->middleware('auth')
@@ -2460,6 +2514,10 @@ Route::delete('/staff-portal/delivery-sheets/{deliverySheet}/items/{item}', [Sta
 Route::get('/staff-portal/job-orders', [StaffPortalController::class, 'jobOrders'])
     ->middleware('auth')
     ->name('staff.portal.job-orders.index');
+
+Route::get('/staff-portal/job-orders/export', [StaffPortalController::class, 'jobOrdersExport'])
+    ->middleware('auth')
+    ->name('staff.portal.job-orders.export');
 
 Route::get('/staff-portal/job-orders/create', [StaffPortalController::class, 'jobOrderCreate'])
     ->middleware('auth')
@@ -2508,6 +2566,10 @@ Route::post('/staff-portal/document-reviews/{checklist}/reject', [StaffPortalCon
 Route::get('/staff-portal/payment-reviews', [StaffPortalController::class, 'paymentReviews'])
     ->middleware('auth')
     ->name('staff.portal.payment-reviews.index');
+
+Route::post('/staff-portal/payments/{payment}/slip', [StaffPortalController::class, 'paymentSlipStore'])
+    ->middleware('auth')
+    ->name('staff.portal.payments.slip.store');
 
 Route::post('/staff-portal/payments/{payment}/verify', [StaffPortalController::class, 'verifyPayment'])
     ->middleware('auth')

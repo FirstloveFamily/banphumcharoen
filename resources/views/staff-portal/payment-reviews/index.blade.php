@@ -56,6 +56,17 @@
             </div>
         @endif
 
+        @if ($errors->any())
+            <div class="rounded-2xl bg-rose-50 p-4 border border-rose-100 text-rose-700 text-sm">
+                <p class="font-bold">อัปโหลดสลิปไม่สำเร็จ</p>
+                <ul class="mt-1 list-disc pl-5">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         <!-- Stats Grid -->
         <section class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <article class="glass-card rounded-3xl p-6 shadow-sm">
@@ -158,6 +169,12 @@
                                     </a>
                                 @endif
 
+                                <a href="#payment-slip-{{ $payment->id }}"
+                                    class="grid h-12 w-12 place-items-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-emerald-600 hover:border-emerald-100 transition-all shadow-sm"
+                                    title="อัปโหลดหรือเปลี่ยนสลิป">
+                                    <i data-lucide="upload" class="h-5 w-5"></i>
+                                </a>
+
                                 @if ($payment->status === 'pending')
                                     <form method="POST" action="{{ route('staff.portal.payments.verify', $payment) }}" class="flex-1">
                                         @csrf
@@ -168,6 +185,20 @@
                                     </form>
                                 @endif
                             </div>
+
+                            <form id="payment-slip-{{ $payment->id }}" method="POST" action="{{ route('staff.portal.payments.slip.store', $payment) }}" enctype="multipart/form-data" class="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 space-y-3">
+                                @csrf
+                                <div>
+                                    <p class="text-xs font-black text-emerald-800">{{ $payment->slip_path ? 'เปลี่ยนไฟล์สลิป' : 'อัปโหลดไฟล์สลิป' }}</p>
+                                    <p class="mt-1 text-[10px] font-medium text-emerald-700">JPG, PNG, WEBP หรือ PDF ไม่เกิน 10 MB</p>
+                                </div>
+                                <input type="file" name="slip_file" accept=".jpg,.jpeg,.png,.webp,.pdf" required
+                                    class="w-full text-xs text-slate-500 file:mr-3 file:rounded-xl file:border-0 file:bg-emerald-700 file:px-3 file:py-2 file:text-xs file:font-bold file:text-white hover:file:bg-emerald-800">
+                                <button type="submit" class="w-full h-10 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 text-xs font-black text-white hover:bg-emerald-700 transition-all">
+                                    <i data-lucide="upload" class="h-3.5 w-3.5"></i>
+                                    {{ $payment->slip_path ? 'เปลี่ยนสลิป' : 'อัปโหลดสลิป' }}
+                                </button>
+                            </form>
 
                             @if ($payment->status === 'pending')
                                 <form method="POST" action="{{ route('staff.portal.payments.reject', $payment) }}" class="space-y-3">

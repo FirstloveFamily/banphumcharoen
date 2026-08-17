@@ -214,6 +214,11 @@
                                 <i data-lucide="users" class="h-5 w-5"></i>
                                 รายชื่อแรงงาน
                             </a>
+                            <a href="{{ route('employers.workers.request.create') }}"
+                                class="inline-flex items-center justify-center gap-3 rounded-2xl bg-rose-600 px-5 py-3 text-base font-medium text-white transition hover:bg-rose-700 shadow-lg">
+                                <i data-lucide="user-plus" class="h-5 w-5"></i>
+                                ขอเพิ่มแรงงาน
+                            </a>
                             <a href="{{ route('employers.jobs.create') }}"
                                 class="inline-flex items-center justify-center gap-3 rounded-2xl bg-blue-900 px-5 py-3 text-base font-medium text-white transition hover:bg-blue-800 shadow-lg">
                                 <i data-lucide="plus" class="h-5 w-5"></i>

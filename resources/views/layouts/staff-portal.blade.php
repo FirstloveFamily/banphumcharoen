@@ -270,6 +270,14 @@
                     <i data-lucide="users-2" class="h-5 w-5"></i>
                     รายชื่อแรงงาน
                 </a>
+                <a href="{{ route('staff.portal.worker-registration-requests.index') }}" @class([
+                    'group flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all duration-200 rounded-lg',
+                    'nav-item-active' => request()->routeIs('staff.portal.worker-registration-requests.*'),
+                    'text-slate-300 hover:text-white hover:bg-white/10' => ! request()->routeIs('staff.portal.worker-registration-requests.*'),
+                ])>
+                    <i data-lucide="user-plus" class="h-5 w-5"></i>
+                    คำขอเพิ่มแรงงาน
+                </a>
                 <a href="{{ route('staff.portal.worker-prefixes.index') }}" @class([
                     'group flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all duration-200 rounded-lg',
                     'nav-item-active' => request()->routeIs('staff.portal.worker-prefixes.*'),
@@ -372,6 +380,14 @@
                 ])>
                     <i data-lucide="settings" class="h-5 w-5"></i>
                     ตั้งค่าการใช้งาน
+                </a>
+                <a href="{{ route('staff.portal.document-statuses.index') }}" @class([
+                    'group flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all duration-200 rounded-lg',
+                    'nav-item-active' => request()->routeIs('staff.portal.document-statuses.*'),
+                    'text-slate-300 hover:text-white hover:bg-white/10' => ! request()->routeIs('staff.portal.document-statuses.*'),
+                ])>
+                    <i data-lucide="tags" class="h-5 w-5"></i>
+                    สถานะเอกสาร
                 </a>
                 @if(auth()->user()?->hasAnyRole(['super_admin', 'admin', 'manager', 'staff', 'accounting']))
                     <a href="{{ route('staff.portal.users.index') }}" @class([

@@ -61,6 +61,11 @@
                     <i data-lucide="package-check" class="h-4 w-4"></i>
                     ใบส่งงาน
                 </a>
+                <a href="{{ route('staff.portal.job-orders.export', request()->query()) }}"
+                    class="flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 transition-all">
+                    <i data-lucide="file-spreadsheet" class="h-4 w-4"></i>
+                    Export Excel
+                </a>
                 <a href="{{ route('staff.portal.job-orders.create') }}"
                     class="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#0b2f52] via-[#123e68] to-[#b91c1c] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-[#0b2f52]/20 transition hover:opacity-95">
                     <i data-lucide="plus" class="h-4 w-4"></i>
@@ -106,7 +111,7 @@
 
         <!-- Search & Filter -->
         <section class="glass-card rounded-3xl p-6 shadow-sm">
-            <form method="GET" class="grid gap-6 lg:grid-cols-[1fr_repeat(3,200px)_auto]">
+            <form method="GET" class="grid gap-6 lg:grid-cols-[1fr_repeat(4,200px)_auto]">
                 <div class="relative">
                     <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400"></i>
                     <input type="text" name="q" value="{{ $keyword }}" 
@@ -131,6 +136,13 @@
                     <select name="payment_status" class="w-full h-12 rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all appearance-none">
                         @foreach ($paymentLabels as $value => $label)
                             <option value="{{ $value }}" @selected($paymentStatus === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <select name="sort" class="w-full h-12 rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all appearance-none">
+                        @foreach ($sortOptions as $value => $label)
+                            <option value="{{ $value }}" @selected($sort === $value)>เรียงตาม{{ $label }}</option>
                         @endforeach
                     </select>
                 </div>

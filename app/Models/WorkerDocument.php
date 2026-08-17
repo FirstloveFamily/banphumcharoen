@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\User;
 
 class WorkerDocument extends Model
 {
@@ -11,12 +12,18 @@ class WorkerDocument extends Model
         'worker_id',
         'document_master_id',
         'file_path',
+        'status',
+        'submitted_at',
+        'verified_at',
+        'verified_by',
         'expiry_date',
         'note',
     ];
 
     protected $casts = [
         'expiry_date' => 'date',
+        'submitted_at' => 'datetime',
+        'verified_at' => 'datetime',
     ];
 
     public function worker(): BelongsTo
@@ -27,6 +34,11 @@ class WorkerDocument extends Model
     public function documentMaster(): BelongsTo
     {
         return $this->belongsTo(DocumentMaster::class);
+    }
+
+    public function verifier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'verified_by');
     }
 
     public function isExpired(): bool

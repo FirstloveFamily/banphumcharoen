@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\JobOrder;
 use App\Models\JobOrderChecklist;
 use App\Models\JobOrderPayment;
+use App\Models\JobOrderLog;
 use App\Models\AboutUsBlock;
 use App\Models\Employer;
 use App\Models\DocumentMaster;
@@ -19,6 +20,10 @@ use App\Models\ServiceChecklist;
 use App\Models\Worker;
 use App\Models\WorkerDocument;
 use App\Models\WorkerPrefix;
+use App\Models\WorkerDocumentStatus;
+use App\Models\WorkerRegistrationRequest;
+use App\Exports\WorkersExport;
+use App\Exports\JobOrdersExport;
 use App\Support\UploadLimits;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -196,6 +201,78 @@ class StaffPortalController extends Controller
         $this->authorizeStaff($request);
         $user = auth()->user();
         return view('staff-portal.settings', compact('user'));
+    }
+
+    public function documentStatuses(Request $request)
+    {
+        $this->authorizeStaff($request);
+
+        $statuses = WorkerDocumentStatus::query()
+            ->orderBy('sort_order')
+            ->orderBy('name_th')
+            ->get();
+
+        return view('staff-portal.document-statuses.index', compact('statuses'));
+    }
+
+    public function documentStatusStore(Request $request)
+    {
+        $this->authorizeStaff($request);
+
+        $allowedColors = [
+            'bg-slate-100 text-slate-500',
+            'bg-amber-50 text-amber-700',
+            'bg-blue-50 text-blue-700',
+            'bg-emerald-50 text-emerald-700',
+            'bg-rose-50 text-rose-700',
+        ];
+
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:40', 'regex:/^[a-z0-9_]+$/', 'unique:worker_document_statuses,code'],
+            'name_th' => ['required', 'string', 'max:100'],
+            'color_class' => ['required', 'string', Rule::in($allowedColors)],
+            'sort_order' => ['required', 'integer', 'min:0', 'max:999'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        WorkerDocumentStatus::create([
+            'code' => $validated['code'],
+            'name_th' => $validated['name_th'],
+            'color_class' => $validated['color_class'],
+            'sort_order' => $validated['sort_order'],
+            'is_active' => $request->boolean('is_active'),
+        ]);
+
+        return back()->with('success', 'เพิ่มสถานะเอกสารเรียบร้อยแล้ว');
+    }
+
+    public function documentStatusUpdate(Request $request, WorkerDocumentStatus $workerDocumentStatus)
+    {
+        $this->authorizeStaff($request);
+
+        $allowedColors = [
+            'bg-slate-100 text-slate-500',
+            'bg-amber-50 text-amber-700',
+            'bg-blue-50 text-blue-700',
+            'bg-emerald-50 text-emerald-700',
+            'bg-rose-50 text-rose-700',
+        ];
+
+        $validated = $request->validate([
+            'name_th' => ['required', 'string', 'max:100'],
+            'color_class' => ['required', 'string', Rule::in($allowedColors)],
+            'sort_order' => ['required', 'integer', 'min:0', 'max:999'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $workerDocumentStatus->update([
+            'name_th' => $validated['name_th'],
+            'color_class' => $validated['color_class'],
+            'sort_order' => $validated['sort_order'],
+            'is_active' => $request->boolean('is_active'),
+        ]);
+
+        return back()->with('success', 'บันทึกสถานะเอกสารเรียบร้อยแล้ว');
     }
 
     public function users(Request $request)
@@ -974,7 +1051,7 @@ class StaffPortalController extends Controller
             'employerId',
             'workerId',
             'serviceId',
-        ));
+        ) + ['requestMode' => false]);
     }
 
     public function jobOrderStore(Request $request)
@@ -1478,12 +1555,39 @@ class StaffPortalController extends Controller
 
         $keyword = trim((string) $request->query('q', ''));
         $expiryStatus = (string) $request->query('expiry', '');
-        $activeStatus = (string) $request->query('active', '');
+        $documentExpiry = (string) $request->query('document_expiry', '');
+        $documentExpiryOptions = [
+            '' => 'เอกสารหมดอายุทั้งหมด',
+            'passport' => 'Passport หมดอายุ',
+            'work_permit' => 'Work Permit หมดอายุ',
+            'pink_card' => 'บัตรชมพูหมดอายุ',
+            'visa' => 'Visa หมดอายุ',
+            'report_90' => '90 วันหมดอายุ',
+        ];
+        if (! array_key_exists($documentExpiry, $documentExpiryOptions)) {
+            $documentExpiry = '';
+        }
+        $activeStatus = (string) ($request->route('worker_status') ?: $request->query('active', ''));
+        if (! in_array($activeStatus, ['', 'active', 'inactive'], true)) {
+            $activeStatus = '';
+        }
+        $sort = (string) $request->query('sort', 'name');
+        $sortOptions = [
+            'name' => 'ชื่อแรงงาน',
+            'nearest_expiry' => 'วันหมดอายุใกล้ที่สุด',
+            'passport_expiry' => 'Passport',
+            'wp_expiry' => 'Work Permit',
+            'visa_expiry' => 'Visa',
+            'report_90_days_due' => '90 Days Report',
+        ];
+        if (! array_key_exists($sort, $sortOptions)) {
+            $sort = 'name';
+        }
         $today = now()->startOfDay();
         $soon = now()->copy()->addDays(45)->endOfDay();
 
-        $workers = Worker::query()
-            ->with(['employer', 'nationality', 'workerPrefix'])
+        $workersQuery = Worker::query()
+            ->with(['employer', 'nationality', 'workerPrefix', 'documents.documentMaster'])
             ->withCount('jobOrders')
             ->when($keyword !== '', function ($query) use ($keyword): void {
                 $query->where(function ($subQuery) use ($keyword): void {
@@ -1515,10 +1619,55 @@ class StaffPortalController extends Controller
                         ->orWhereDate('report_90_days_due', '<', $today);
                 });
             })
+            ->when($documentExpiry !== '', function ($query) use ($documentExpiry, $today): void {
+                $legacyColumns = [
+                    'passport' => 'passport_expiry',
+                    'work_permit' => 'wp_expiry',
+                    'visa' => 'visa_expiry',
+                    'report_90' => 'report_90_days_due',
+                ];
+
+                if (isset($legacyColumns[$documentExpiry])) {
+                    $query->whereDate($legacyColumns[$documentExpiry], '<', $today);
+                } elseif ($documentExpiry === 'pink_card') {
+                    $query->whereHas('documents', function ($documentQuery) use ($today): void {
+                        $documentQuery
+                            ->whereDate('expiry_date', '<', $today)
+                            ->whereHas('documentMaster', fn ($masterQuery) => $masterQuery
+                                ->where('id', 12)
+                                ->orWhere('name', 'บัตรชมพู')
+                                ->orWhere('code', 'Pink Identification Card for Foreign Workers'));
+                    });
+                }
+            })
             ->when($activeStatus === 'active', fn($query) => $query->where('is_active', true))
-            ->when($activeStatus === 'inactive', fn($query) => $query->where('is_active', false))
-            ->orderByDesc('is_active')
-            ->orderBy('first_name_th')
+            ->when($activeStatus === 'inactive', fn($query) => $query->where('is_active', false));
+
+        if ($sort === 'nearest_expiry') {
+            $expiryColumns = ['passport_expiry', 'wp_expiry', 'visa_expiry', 'report_90_days_due'];
+            $driver = DB::connection()->getDriverName();
+            $parts = collect($expiryColumns)
+                ->map(fn (string $column): string => "COALESCE({$column}, '9999-12-31')")
+                ->implode(', ');
+            $nearestExpiryExpression = $driver === 'mysql'
+                ? "LEAST({$parts})"
+                : "min({$parts})";
+
+            $workersQuery
+                ->orderByRaw("{$nearestExpiryExpression} asc")
+                ->orderBy('first_name_th');
+        } elseif ($sort !== 'name') {
+            $workersQuery
+                ->orderByRaw("{$sort} is null")
+                ->orderBy($sort)
+                ->orderBy('first_name_th');
+        } else {
+            $workersQuery
+                ->orderByDesc('is_active')
+                ->orderBy('first_name_th');
+        }
+
+        $workers = $workersQuery
             ->paginate(15)
             ->withQueryString();
 
@@ -1542,16 +1691,148 @@ class StaffPortalController extends Controller
                         ->orWhereDate('passport_expiry', '<', $today)
                         ->orWhereDate('report_90_days_due', '<', $today);
                 })
-                ->count(),
+            ->count(),
         ];
+
+        $workflowStatuses = WorkerDocumentStatus::query()
+            ->active()
+            ->orderBy('sort_order')
+            ->orderBy('name_th')
+            ->get();
 
         return view('staff-portal.workers.index', compact(
             'workers',
             'keyword',
             'expiryStatus',
+            'documentExpiry',
+            'documentExpiryOptions',
             'activeStatus',
+            'sort',
+            'sortOptions',
+            'workflowStatuses',
             'summary',
         ));
+    }
+
+    public function workersExport(Request $request)
+    {
+        $this->authorizeStaff($request);
+
+        $activeStatus = (string) ($request->query('worker_status') ?: $request->query('active', ''));
+        if (! in_array($activeStatus, ['', 'active', 'inactive'], true)) {
+            $activeStatus = '';
+        }
+
+        $documentExpiry = (string) $request->query('document_expiry', '');
+        if (! in_array($documentExpiry, ['', 'passport', 'work_permit', 'pink_card', 'visa', 'report_90'], true)) {
+            $documentExpiry = '';
+        }
+
+        $sort = (string) $request->query('sort', 'name');
+        if (! in_array($sort, ['name', 'nearest_expiry', 'passport_expiry', 'wp_expiry', 'visa_expiry', 'report_90_days_due'], true)) {
+            $sort = 'name';
+        }
+
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new WorkersExport(
+                keyword: trim((string) $request->query('q', '')),
+                expiryStatus: (string) $request->query('expiry', ''),
+                documentExpiry: $documentExpiry,
+                activeStatus: $activeStatus,
+                sort: $sort,
+            ),
+            'workers-' . ($activeStatus ?: 'all') . '-' . now()->format('Ymd_His') . '.xlsx',
+        );
+    }
+
+    public function workerRegistrationRequests(Request $request)
+    {
+        $this->authorizeStaff($request);
+
+        $status = (string) $request->query('status', 'pending');
+        if (! in_array($status, ['', 'pending', 'approved', 'rejected'], true)) {
+            $status = 'pending';
+        }
+
+        $registrationRequests = WorkerRegistrationRequest::query()
+            ->with(['employer', 'requester', 'reviewer'])
+            ->when($status !== '', fn ($query) => $query->where('status', $status))
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
+        $nationalityNames = \App\Models\Nationality::query()->pluck('name_th', 'id');
+
+        return view('staff-portal.worker-registration-requests.index', compact('registrationRequests', 'status', 'nationalityNames'));
+    }
+
+    public function workerRegistrationRequestApprove(Request $request, WorkerRegistrationRequest $registrationRequest)
+    {
+        $this->authorizeStaff($request);
+        abort_unless($registrationRequest->status === 'pending', 422, 'คำขอนี้ถูกดำเนินการไปแล้ว');
+
+        $data = $registrationRequest->data ?? [];
+        $validated = validator($data, [
+            'nationality_id' => ['required', 'exists:nationalities,id'],
+            'worker_prefix_id' => ['nullable', 'exists:worker_prefixes,id'],
+            'first_name_th' => ['required', 'string', 'max:150'],
+            'last_name_th' => ['nullable', 'string', 'max:150'],
+            'first_name_en' => ['required', 'string', 'max:150'],
+            'last_name_en' => ['nullable', 'string', 'max:150'],
+            'birth_date' => ['required', 'date'],
+            'gender' => ['nullable', 'string', 'max:20'],
+            'passport_number' => ['nullable', 'string', 'max:100', Rule::unique('workers', 'passport_number')],
+            'passport_expiry' => ['nullable', 'date'],
+            'wp_number' => ['nullable', 'string', 'max:100', Rule::unique('workers', 'wp_number')],
+            'wp_expiry' => ['nullable', 'date'],
+            'visa_expiry' => ['nullable', 'date'],
+            'report_90_days_due' => ['nullable', 'date'],
+        ])->validate();
+
+        foreach (['passport_file', 'wp_file', 'visa_file', 'report_90_days_file', 'photo_file'] as $field) {
+            if (empty($data[$field])) {
+                continue;
+            }
+
+            $newPath = match ($field) {
+                'photo_file' => 'worker-photos/' . basename($data[$field]),
+                'passport_file' => 'workers/passports/' . basename($data[$field]),
+                'wp_file' => 'workers/wp/' . basename($data[$field]),
+                'visa_file' => 'workers/visa/' . basename($data[$field]),
+                default => 'workers/report_90_days/' . basename($data[$field]),
+            };
+            Storage::disk('public')->move($data[$field], $newPath);
+            $validated[$field === 'photo_file' ? 'photo_path' : $field] = $newPath;
+        }
+
+        $worker = Worker::create(array_merge($validated, [
+            'employer_id' => $registrationRequest->employer_id,
+            'is_active' => true,
+        ]));
+        $this->syncLegacyWorkerDocuments($worker);
+
+        $registrationRequest->update([
+            'status' => 'approved',
+            'reviewed_by' => $request->user()->id,
+            'reviewed_at' => now(),
+        ]);
+
+        return back()->with('success', "อนุมัติคำขอและสร้างแรงงาน {$worker->full_name_th} เรียบร้อยแล้ว");
+    }
+
+    public function workerRegistrationRequestReject(Request $request, WorkerRegistrationRequest $registrationRequest)
+    {
+        $this->authorizeStaff($request);
+        abort_unless($registrationRequest->status === 'pending', 422, 'คำขอนี้ถูกดำเนินการไปแล้ว');
+
+        $validated = $request->validate(['review_note' => ['required', 'string', 'max:2000']]);
+        $registrationRequest->update([
+            'status' => 'rejected',
+            'reviewed_by' => $request->user()->id,
+            'reviewed_at' => now(),
+            'review_note' => $validated['review_note'],
+        ]);
+
+        return back()->with('success', 'ตีกลับคำขอเพิ่มแรงงานแล้ว');
     }
 
     public function workerCreate(Request $request)
@@ -1566,7 +1847,7 @@ class StaffPortalController extends Controller
             ->orderBy('name_th')
             ->get();
 
-        return view('staff-portal.workers.create', compact('employers', 'nationalities', 'workerPrefixes'));
+        return view('staff-portal.workers.create', compact('employers', 'nationalities', 'workerPrefixes') + ['requestMode' => false]);
     }
 
     public function workerStore(Request $request)
@@ -1620,6 +1901,7 @@ class StaffPortalController extends Controller
         unset($validated['photo_file']);
 
         $worker = \App\Models\Worker::create($validated);
+        $this->syncLegacyWorkerDocuments($worker);
 
         return redirect()->route('staff.portal.workers.show', $worker)
             ->with('success', 'เพิ่มข้อมูลแรงงานเรียบร้อยแล้ว');
@@ -1629,9 +1911,17 @@ class StaffPortalController extends Controller
     {
         $this->authorizeStaff($request);
 
+        $this->syncLegacyWorkerDocuments($worker);
+
         $documentMasters = DocumentMaster::query()
             ->active()
             ->orderBy('name')
+            ->get();
+
+        $workflowStatuses = WorkerDocumentStatus::query()
+            ->active()
+            ->orderBy('sort_order')
+            ->orderBy('name_th')
             ->get();
 
         $worker->load([
@@ -1660,12 +1950,14 @@ class StaffPortalController extends Controller
             'unpaid_amount' => $worker->jobOrders->sum(fn(JobOrder $jobOrder): float => $jobOrder->getRemainingAmount()),
         ];
 
-        return view('staff-portal.workers.show', compact('worker', 'expiryCards', 'summary', 'documentMasters'));
+        return view('staff-portal.workers.show', compact('worker', 'expiryCards', 'summary', 'documentMasters', 'workflowStatuses'));
     }
 
     public function workerEdit(Request $request, Worker $worker)
     {
         $this->authorizeStaff($request);
+
+        $this->syncLegacyWorkerDocuments($worker);
 
         $employers = \App\Models\Employer::orderBy('company_name')->get();
         $nationalities = \App\Models\Nationality::orderBy('name_th')->get();
@@ -1675,7 +1967,15 @@ class StaffPortalController extends Controller
             ->orderBy('name_th')
             ->get();
 
-        return view('staff-portal.workers.edit', compact('worker', 'employers', 'nationalities', 'workerPrefixes'));
+        $workflowStatuses = WorkerDocumentStatus::query()
+            ->active()
+            ->orderBy('sort_order')
+            ->orderBy('name_th')
+            ->get();
+
+        $worker->load('documents.documentMaster');
+
+        return view('staff-portal.workers.edit', compact('worker', 'employers', 'nationalities', 'workerPrefixes', 'workflowStatuses'));
     }
 
     public function workerUpdate(Request $request, Worker $worker)
@@ -1711,6 +2011,8 @@ class StaffPortalController extends Controller
             'wp_file' => UploadLimits::documentRules(false, ['pdf', 'jpg', 'jpeg', 'png']),
             'visa_file' => UploadLimits::documentRules(false, ['pdf', 'jpg', 'jpeg', 'png']),
             'report_90_days_file' => UploadLimits::documentRules(false, ['pdf', 'jpg', 'jpeg', 'png']),
+            'document_status' => ['nullable', 'array'],
+            'document_status.*' => [Rule::in(WorkerDocumentStatus::query()->active()->pluck('code')->all())],
         ]);
 
         $prefix = ! empty($validated['worker_prefix_id'])
@@ -1739,7 +2041,12 @@ class StaffPortalController extends Controller
 
         unset($validated['photo_file']);
 
+        $documentStatuses = $validated['document_status'] ?? [];
+        unset($validated['document_status']);
+
         $worker->update($validated);
+        $this->syncLegacyWorkerDocuments($worker);
+        $this->updateLegacyWorkerDocumentStatuses($worker, $documentStatuses, $request);
 
         return redirect()->route('staff.portal.workers.show', $worker)
             ->with('success', 'แก้ไขข้อมูลแรงงานเรียบร้อยแล้ว');
@@ -1808,12 +2115,47 @@ class StaffPortalController extends Controller
             ['document_master_id' => $documentMaster->id],
             [
                 'file_path' => $filePath,
+                'status' => 'pending_review',
+                'submitted_at' => now(),
+                'verified_at' => null,
+                'verified_by' => null,
                 'expiry_date' => $validated['expiry_date'] ?? null,
                 'note' => $validated['note'] ?? null,
             ]
         );
 
         return back()->with('success', 'อัปโหลดเอกสารเพิ่มเติมเรียบร้อยแล้ว');
+    }
+
+    public function workerDocumentStatusUpdate(Request $request, Worker $worker, WorkerDocument $workerDocument)
+    {
+        $this->authorizeStaff($request);
+
+        abort_unless($workerDocument->worker_id === $worker->id, 404);
+
+        $activeStatusCodes = WorkerDocumentStatus::query()->active()->pluck('code')->all();
+
+        $validated = $request->validate([
+            'status' => ['required', Rule::in($activeStatusCodes)],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $update = [
+            'status' => $validated['status'],
+            'note' => $validated['note'] ?? null,
+        ];
+
+        if ($validated['status'] === 'approved') {
+            $update['verified_at'] = now();
+            $update['verified_by'] = $request->user()->id;
+        } else {
+            $update['verified_at'] = null;
+            $update['verified_by'] = null;
+        }
+
+        $workerDocument->update($update);
+
+        return back()->with('success', 'อัปเดตสถานะเอกสารเรียบร้อยแล้ว');
     }
 
     public function workerDocumentDestroy(Request $request, Worker $worker, WorkerDocument $workerDocument)
@@ -2082,6 +2424,17 @@ class StaffPortalController extends Controller
         $status = (string) $request->query('status', '');
         $priority = (string) $request->query('priority', '');
         $paymentStatus = (string) $request->query('payment_status', '');
+        $sort = (string) $request->query('sort', 'latest');
+        $sortOptions = [
+            'latest' => 'ใบงานล่าสุด',
+            'due_date_asc' => 'กำหนดส่งงาน (เก่าไปใหม่)',
+            'due_date_desc' => 'กำหนดส่งงาน (ใหม่ไปเก่า)',
+            'created_at_desc' => 'วันที่สร้าง (ใหม่ไปเก่า)',
+            'created_at_asc' => 'วันที่สร้าง (เก่าไปใหม่)',
+        ];
+        if (! array_key_exists($sort, $sortOptions)) {
+            $sort = 'latest';
+        }
 
         $jobOrders = JobOrder::query()
             ->with(['employer', 'worker', 'service', 'assignedUser', 'statusDefinition'])
@@ -2106,8 +2459,15 @@ class StaffPortalController extends Controller
             ->when($status !== '', fn($query) => $query->where('status', $status))
             ->when($priority !== '', fn($query) => $query->where('priority', $priority))
             ->when($paymentStatus !== '', fn($query) => $query->where('payment_status', $paymentStatus))
-            ->orderByRaw('case when due_date is null then 1 else 0 end')
-            ->orderBy('due_date', 'asc')
+            ->when($sort === 'latest', fn ($query) => $query->orderByDesc('created_at')->orderByDesc('job_number'))
+            ->when($sort === 'due_date_desc', function ($query): void {
+                $query->orderByRaw('case when due_date is null then 1 else 0 end')->orderByDesc('due_date');
+            })
+            ->when($sort === 'due_date_asc', function ($query): void {
+                $query->orderByRaw('case when due_date is null then 1 else 0 end')->orderBy('due_date');
+            })
+            ->when($sort === 'created_at_desc', fn ($query) => $query->orderByDesc('created_at'))
+            ->when($sort === 'created_at_asc', fn ($query) => $query->orderBy('created_at'))
             ->orderByRaw("case priority when 'urgent' then 0 when 'high' then 1 when 'medium' then 2 else 3 end")
             ->latest('updated_at')
             ->paginate(15)
@@ -2132,9 +2492,26 @@ class StaffPortalController extends Controller
             'status',
             'priority',
             'paymentStatus',
+            'sort',
+            'sortOptions',
             'summary',
             'jobOrderStatuses',
         ));
+    }
+
+    public function jobOrdersExport(Request $request)
+    {
+        $this->authorizeStaff($request);
+
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new JobOrdersExport(
+                keyword: trim((string) $request->query('q', '')),
+                status: (string) $request->query('status', ''),
+                priority: (string) $request->query('priority', ''),
+                paymentStatus: (string) $request->query('payment_status', ''),
+            ),
+            'job-orders-' . now()->format('Ymd_His') . '.xlsx',
+        );
     }
 
     public function jobOrderShow(Request $request, JobOrder $jobOrder)
@@ -2433,6 +2810,37 @@ class StaffPortalController extends Controller
         ));
     }
 
+    public function paymentSlipStore(Request $request, JobOrderPayment $payment)
+    {
+        $this->authorizeStaff($request);
+
+        $validated = $request->validate([
+            'slip_file' => UploadLimits::fileRules(true, ['jpg', 'jpeg', 'png', 'webp', 'pdf']),
+        ]);
+
+        $payment->load('jobOrder');
+
+        if ($payment->slip_path) {
+            Storage::disk('public')->delete($payment->slip_path);
+        }
+
+        $jobFolder = $payment->jobOrder?->job_number ?: 'payment-' . $payment->id;
+        $path = $validated['slip_file']->store("job-order-payments/{$jobFolder}", 'public');
+
+        $payment->update(['slip_path' => $path]);
+
+        if ($payment->jobOrder) {
+            JobOrderLog::create([
+                'job_order_id' => $payment->jobOrder->id,
+                'user_id' => $request->user()->id,
+                'action' => $payment->status === 'rejected' ? 'เจ้าหน้าที่อัปโหลดสลิปใหม่' : 'เจ้าหน้าที่อัปโหลดสลิป',
+                'description' => 'อัปโหลดหรือเปลี่ยนไฟล์หลักฐานชำระเงินจำนวน ' . number_format((float) $payment->amount, 2) . ' บาท',
+            ]);
+        }
+
+        return back()->with('success', 'อัปโหลดสลิปเรียบร้อยแล้ว');
+    }
+
     public function verifyDocument(Request $request, JobOrderChecklist $checklist)
     {
         $this->authorizeStaff($request);
@@ -2551,6 +2959,80 @@ class StaffPortalController extends Controller
             $request->user()?->hasAnyRole(['staff', 'accounting', 'super_admin', 'admin', 'manager']),
             403
         );
+    }
+
+    private function syncLegacyWorkerDocuments(Worker $worker): void
+    {
+        $mapping = [
+            'PASSPORT' => ['file' => 'passport_file', 'expiry' => 'passport_expiry'],
+            'WORK_PERMIT' => ['file' => 'wp_file', 'expiry' => 'wp_expiry'],
+            'VISA' => ['file' => 'visa_file', 'expiry' => 'visa_expiry'],
+            'REPORT_90' => ['file' => 'report_90_days_file', 'expiry' => 'report_90_days_due'],
+        ];
+
+        $masters = DocumentMaster::query()
+            ->whereIn('code', array_keys($mapping))
+            ->get()
+            ->keyBy('code');
+
+        foreach ($mapping as $code => $fields) {
+            $master = $masters->get($code);
+            $filePath = $worker->{$fields['file']};
+
+            if (! $master || ! $filePath) {
+                continue;
+            }
+
+            $document = $worker->documents()->where('document_master_id', $master->id)->first();
+            if ($document) {
+                $document->update([
+                    'file_path' => $filePath,
+                    'expiry_date' => $worker->{$fields['expiry']},
+                ]);
+            } else {
+                $worker->documents()->create([
+                    'document_master_id' => $master->id,
+                    'file_path' => $filePath,
+                    'expiry_date' => $worker->{$fields['expiry']},
+                    'status' => 'approved',
+                ]);
+            }
+        }
+    }
+
+    private function updateLegacyWorkerDocumentStatuses(Worker $worker, array $statuses, Request $request): void
+    {
+        if ($statuses === []) {
+            return;
+        }
+
+        $worker->loadMissing('documents.documentMaster');
+        $codeByField = [
+            'passport' => 'PASSPORT',
+            'work_permit' => 'WORK_PERMIT',
+            'visa' => 'VISA',
+            'report_90' => 'REPORT_90',
+        ];
+
+        foreach ($codeByField as $field => $code) {
+            $document = $worker->documents->first(fn (WorkerDocument $item): bool => $item->documentMaster?->code === $code);
+            $status = $statuses[$field] ?? null;
+
+            if (! $document || ! $status) {
+                continue;
+            }
+
+            $update = ['status' => $status];
+            if ($status === 'approved') {
+                $update['verified_at'] = now();
+                $update['verified_by'] = $request->user()->id;
+            } else {
+                $update['verified_at'] = null;
+                $update['verified_by'] = null;
+            }
+
+            $document->update($update);
+        }
     }
 
     private function authorizeUserManagement(Request $request): void

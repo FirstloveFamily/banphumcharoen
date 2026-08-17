@@ -1,4 +1,9 @@
-@extends('layouts.staff-portal', ['title' => 'เพิ่มแรงงานใหม่', 'pageTitle' => 'จัดการข้อมูลแรงงาน'])
+@php
+    $layout = $requestMode ? 'layouts.app' : 'layouts.staff-portal';
+    $title = $requestMode ? 'ขอเพิ่มแรงงาน' : 'เพิ่มแรงงานใหม่';
+    $pageTitle = 'จัดการข้อมูลแรงงาน';
+@endphp
+@extends($layout)
 
 @push('head')
 <style>
@@ -69,13 +74,13 @@
         <!-- Header Section -->
         <header class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div class="flex items-center gap-5">
-                <a href="{{ route('staff.portal.workers.index') }}" 
+                <a href="{{ $requestMode ? route('employers.workers.index') : route('staff.portal.workers.index') }}" 
                     class="grid h-12 w-12 place-items-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 transition-all shadow-sm">
                     <i data-lucide="arrow-left" class="h-6 w-6"></i>
                 </a>
                 <div>
-                    <h2 class="text-3xl font-bold tracking-tight text-slate-900">เพิ่มแรงงานใหม่</h2>
-                    <p class="mt-1 text-slate-500">บันทึกข้อมูลและอัปโหลดเอกสารสำคัญของแรงงานรายใหม่</p>
+                    <h2 class="text-3xl font-bold tracking-tight text-slate-900">{{ $requestMode ? 'ขอเพิ่มแรงงานใหม่' : 'เพิ่มแรงงานใหม่' }}</h2>
+                    <p class="mt-1 text-slate-500">{{ $requestMode ? 'กรอกข้อมูลเพื่อส่งให้เจ้าหน้าที่ตรวจสอบก่อนสร้างแรงงานเข้าระบบ' : 'บันทึกข้อมูลและอัปโหลดเอกสารสำคัญของแรงงานรายใหม่' }}</p>
                 </div>
             </div>
         </header>
@@ -96,7 +101,7 @@
             </div>
         @endif
 
-        <form action="{{ route('staff.portal.workers.store') }}" method="POST" enctype="multipart/form-data" class="space-y-8">
+        <form action="{{ $requestMode ? route('employers.workers.request.store') : route('staff.portal.workers.store') }}" method="POST" enctype="multipart/form-data" class="space-y-8">
             @csrf
 
             <!-- General Info -->
@@ -109,6 +114,7 @@
                 </div>
 
                 <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    @if (! $requestMode)
                     <div class="lg:col-span-1 space-y-2">
                         <label class="text-xs font-bold uppercase tracking-wider text-slate-500">บริษัทนายจ้าง / ต้นสังกัด <span class="text-rose-500">*</span></label>
                         <div
@@ -146,6 +152,7 @@
                             @endif
                         </p>
                     </div>
+                    @endif
                     <div class="space-y-2">
                         <label class="text-xs font-bold uppercase tracking-wider text-slate-500">สัญชาติ <span class="text-rose-500">*</span></label>
                         <select name="nationality_id" required class="h-12 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all appearance-none">
@@ -214,6 +221,7 @@
                     </div>
                 </div>
 
+                @if (! $requestMode)
                 <div class="mt-8 pt-6 border-t border-slate-50">
                     <label class="group flex items-center gap-3 cursor-pointer">
                         <input type="hidden" name="is_active" value="0">
@@ -226,6 +234,7 @@
                         <span class="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors">สถานะแรงงานปกติ (Active)</span>
                     </label>
                 </div>
+                @endif
             </section>
 
             <!-- Identity Documents -->
@@ -338,14 +347,14 @@
             </section>
 
             <div class="flex items-center justify-end gap-4 pb-12">
-                <a href="{{ route('staff.portal.workers.index') }}"
+                <a href="{{ $requestMode ? route('employers.workers.index') : route('staff.portal.workers.index') }}"
                     class="h-12 px-8 flex items-center justify-center rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50 transition-all">
                     ยกเลิก
                 </a>
                 <button type="submit"
                     class="h-12 px-10 flex items-center justify-center gap-2 rounded-2xl bg-blue-600 text-sm font-bold text-white shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all focus:ring-4 focus:ring-blue-100">
-                    <i data-lucide="save" class="h-4 w-4"></i>
-                    บันทึกข้อมูลแรงงาน
+                    <i data-lucide="{{ $requestMode ? 'send' : 'save' }}" class="h-4 w-4"></i>
+                    {{ $requestMode ? 'ส่งคำขอให้เจ้าหน้าที่ตรวจสอบ' : 'บันทึกข้อมูลแรงงาน' }}
                 </button>
             </div>
         </form>

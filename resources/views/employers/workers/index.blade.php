@@ -69,6 +69,11 @@
                     ดูข้อมูลแรงงานของบริษัท ประวัติใบงาน และวันหมดอายุเอกสารสำคัญ
                 </p>
             </div>
+            <a href="{{ route('employers.workers.request.create') }}"
+                class="mt-8 inline-flex items-center gap-3 rounded-2xl bg-white px-6 py-3 text-base font-semibold text-blue-900 shadow-lg transition hover:bg-blue-50">
+                <i data-lucide="user-plus" class="h-5 w-5"></i>
+                ขอเพิ่มแรงงานใหม่
+            </a>
         </div>
     </section>
 

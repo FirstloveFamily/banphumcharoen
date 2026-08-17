@@ -1,4 +1,10 @@
-@extends('layouts.staff-portal', ['title' => 'เพิ่มใบงานใหม่', 'pageTitle' => 'จัดการใบงาน (Job Orders)'])
+@php
+    $requestMode = $requestMode ?? false;
+    $layout = $requestMode ? 'layouts.app' : 'layouts.staff-portal';
+    $title = $requestMode ? 'แจ้งงานใหม่' : 'เพิ่มใบงานใหม่';
+    $pageTitle = 'จัดการใบงาน (Job Orders)';
+@endphp
+@extends($layout)
 
 @push('head')
 <style>
@@ -130,13 +136,13 @@
     <div class="space-y-8 max-w-6xl mx-auto">
         <header class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div class="flex items-center gap-5">
-                <a href="{{ route('staff.portal.job-orders.index') }}"
+                <a href="{{ $requestMode ? route('employers.dashboard') : route('staff.portal.job-orders.index') }}"
                     class="grid h-12 w-12 place-items-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 transition-all shadow-sm">
                     <i data-lucide="arrow-left" class="h-6 w-6"></i>
                 </a>
                 <div>
-                    <h2 class="text-3xl font-bold tracking-tight text-slate-900">เพิ่มใบงานใหม่</h2>
-                    <p class="mt-1 text-slate-500">สร้างใบงานและระบบจะสร้างรายการเอกสารประกอบให้จากบริการที่เลือกอัตโนมัติ</p>
+                    <h2 class="text-3xl font-bold tracking-tight text-slate-900">{{ $requestMode ? 'แจ้งงานใหม่' : 'เพิ่มใบงานใหม่' }}</h2>
+                    <p class="mt-1 text-slate-500">{{ $requestMode ? 'เลือกบริการและลูกจ้างเพื่อส่งคำขอดำเนินงาน' : 'สร้างใบงานและระบบจะสร้างรายการเอกสารประกอบให้จากบริการที่เลือกอัตโนมัติ' }}</p>
                 </div>
             </div>
         </header>
@@ -157,7 +163,7 @@
             </div>
         @endif
 
-        <form action="{{ route('staff.portal.job-orders.store') }}" method="POST" class="space-y-8">
+        <form action="{{ $requestMode ? route('employers.jobs.store') : route('staff.portal.job-orders.store') }}" method="POST" class="space-y-8">
             @csrf
 
             <section class="glass-card rounded-3xl p-8 shadow-sm">
@@ -169,7 +175,7 @@
                         <h3 class="text-lg font-bold text-slate-900">ข้อมูลใบงาน</h3>
                     </div>
                     <div class="rounded-2xl bg-slate-50 px-4 py-2 text-xs font-bold text-slate-500">
-                        Assigned to: {{ auth()->user()->name }}
+                        {{ $requestMode ? 'ส่งโดย: ' : 'Assigned to: ' }}{{ auth()->user()->name }}
                     </div>
                 </div>
 
@@ -180,6 +186,7 @@
                             <div
                                 class="employer-autocomplete"
                                 data-employer-autocomplete
+                                data-readonly="{{ $requestMode ? 'true' : 'false' }}"
                                 data-employers='@json($employerOptions)'
                             >
                                 <input type="hidden" name="employer_id" value="{{ $selectedEmployerId }}">
@@ -191,13 +198,14 @@
                                         value="{{ $selectedEmployerLabel }}"
                                         placeholder="พิมพ์ชื่อบริษัท, รหัสบริษัท, ผู้ติดต่อ..."
                                         autocomplete="off"
+                                        @readonly($requestMode)
                                         required
                                         class="portal-input h-12 w-full pl-11 pr-11 text-sm font-medium"
                                     >
                                     <button
                                         type="button"
                                         id="employer_clear"
-                                        class="absolute right-2 top-1/2 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                        class="absolute right-2 top-1/2 {{ $requestMode ? 'hidden' : '' }} h-8 w-8 -translate-y-1/2 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
                                         aria-label="ล้างบริษัทนายจ้าง"
                                     >
                                         <i data-lucide="x" class="h-4 w-4"></i>
@@ -214,7 +222,6 @@
                             </p>
                         </div>
                     </div>
-
                     <div class="space-y-2">
                         <label class="text-xs font-bold uppercase tracking-wider text-slate-500">แรงงาน <span class="text-rose-500">*</span></label>
                         <div class="space-y-3">
@@ -286,11 +293,13 @@
                             class="portal-input h-12 w-full px-4 text-sm font-medium">
                     </div>
 
+                    @if (! $requestMode)
                     <div class="space-y-2">
                         <label class="text-xs font-bold uppercase tracking-wider text-slate-500">ค่าบริการ <span class="text-rose-500">*</span></label>
                         <input type="number" name="service_fee" min="0" step="0.01" value="{{ old('service_fee', 0) }}"
                             class="portal-input h-12 w-full px-4 text-sm font-medium">
                     </div>
+                    @endif
                 </div>
 
                 <div class="mt-8 space-y-2">
@@ -306,14 +315,14 @@
             </section>
 
             <div class="flex items-center justify-end gap-4 pb-12">
-                <a href="{{ route('staff.portal.job-orders.index') }}"
+                <a href="{{ $requestMode ? route('employers.dashboard') : route('staff.portal.job-orders.index') }}"
                     class="h-12 px-8 flex items-center justify-center rounded-2xl bg-white border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50 transition-all">
                     ยกเลิก
                 </a>
                 <button type="submit"
                     class="h-12 px-10 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#0b2f52] via-[#123e68] to-[#b91c1c] text-sm font-bold text-white shadow-lg shadow-[#0b2f52]/20 hover:opacity-95 transition-all focus:ring-4 focus:ring-blue-100">
-                    <i data-lucide="save" class="h-4 w-4"></i>
-                    บันทึกใบงาน
+                    <i data-lucide="{{ $requestMode ? 'send' : 'save' }}" class="h-4 w-4"></i>
+                    {{ $requestMode ? 'ส่งแจ้งงาน' : 'บันทึกใบงาน' }}
                 </button>
             </div>
         </form>
@@ -329,6 +338,7 @@
         const employerPanel = employerRoot?.querySelector('[data-employer-panel]');
         const employerHint = document.querySelector('[data-employer-hint]');
         const employerOptions = JSON.parse(employerRoot?.dataset.employers || '[]');
+        const employerReadonly = employerRoot?.dataset.readonly === 'true';
         const form = employerRoot?.closest('form');
         const workerSearch = document.getElementById('worker_search');
         const workerClear = document.getElementById('worker_clear');
@@ -352,6 +362,11 @@
             .replace(/'/g, '&#039;');
 
         function filterEmployers() {
+            if (employerReadonly) {
+                employerPanel?.classList.add('hidden');
+                return;
+            }
+
             const searchValue = normalize(employerSearch.value);
             const matches = employerOptions.filter((employer) => {
                 const haystack = normalize([

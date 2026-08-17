@@ -63,6 +63,17 @@
                 $employer->email,
             ])))),
         ])->values();
+        $workflowOptions = $workflowStatuses->keyBy('code');
+        $getDocumentWorkflow = function (string $code, ?string $legacyFile) use ($worker): string {
+            $document = $worker->documents->first(fn ($item) => $item->documentMaster?->code === $code);
+
+            return old('document_status.' . match ($code) {
+                'PASSPORT' => 'passport',
+                'WORK_PERMIT' => 'work_permit',
+                'VISA' => 'visa',
+                default => 'report_90',
+            }, $document?->status ?: ($legacyFile ? 'approved' : 'awaiting_upload'));
+        };
     @endphp
 
     <div class="space-y-8 max-w-5xl mx-auto">
@@ -274,6 +285,14 @@
                                         class="flex-1 text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 transition-all border border-slate-100 rounded-2xl p-1 bg-slate-50/50">
                                 </div>
                                 <p class="text-xs text-amber-600">รูปไม่เกิน 3 MB, ไฟล์เอกสารไม่เกิน 10 MB</p>
+                                <div class="space-y-2">
+                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-500">สถานะเอกสาร</label>
+                                    <select name="document_status[passport]" class="h-11 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all appearance-none">
+                                        @foreach ($workflowOptions as $workflow)
+                                            <option value="{{ $workflow->code }}" @selected($getDocumentWorkflow('PASSPORT', $worker->passport_file) === $workflow->code)>{{ $workflow->name_th }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -307,6 +326,14 @@
                                         class="flex-1 text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 transition-all border border-slate-100 rounded-2xl p-1 bg-slate-50/50">
                                 </div>
                                 <p class="text-xs text-amber-600">รูปไม่เกิน 3 MB, ไฟล์เอกสารไม่เกิน 10 MB</p>
+                                <div class="space-y-2">
+                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-500">สถานะเอกสาร</label>
+                                    <select name="document_status[work_permit]" class="h-11 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all appearance-none">
+                                        @foreach ($workflowOptions as $workflow)
+                                            <option value="{{ $workflow->code }}" @selected($getDocumentWorkflow('WORK_PERMIT', $worker->wp_file) === $workflow->code)>{{ $workflow->name_th }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -337,6 +364,14 @@
                                         class="flex-1 text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 transition-all border border-slate-100 rounded-2xl p-1 bg-slate-50/50">
                                 </div>
                                 <p class="text-xs text-amber-600">รูปไม่เกิน 3 MB, ไฟล์เอกสารไม่เกิน 10 MB</p>
+                                <div class="space-y-2">
+                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-500">สถานะเอกสาร</label>
+                                    <select name="document_status[visa]" class="h-11 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all appearance-none">
+                                        @foreach ($workflowOptions as $workflow)
+                                            <option value="{{ $workflow->code }}" @selected($getDocumentWorkflow('VISA', $worker->visa_file) === $workflow->code)>{{ $workflow->name_th }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -365,6 +400,14 @@
                                         class="flex-1 text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 transition-all border border-slate-100 rounded-2xl p-1 bg-slate-50/50">
                                 </div>
                                 <p class="text-xs text-amber-600">รูปไม่เกิน 3 MB, ไฟล์เอกสารไม่เกิน 10 MB</p>
+                                <div class="space-y-2">
+                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-500">สถานะเอกสาร</label>
+                                    <select name="document_status[report_90]" class="h-11 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all appearance-none">
+                                        @foreach ($workflowOptions as $workflow)
+                                            <option value="{{ $workflow->code }}" @selected($getDocumentWorkflow('REPORT_90', $worker->report_90_days_file) === $workflow->code)>{{ $workflow->name_th }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
