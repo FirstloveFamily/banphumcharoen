@@ -2170,6 +2170,14 @@ Route::get('/staff-portal/reports', [StaffPortalController::class, 'reports'])
     ->middleware('auth')
     ->name('staff.portal.reports.index');
 
+Route::get('/staff-portal/reports/expiring-documents', [StaffPortalController::class, 'expiringDocumentReport'])
+    ->middleware('auth')
+    ->name('staff.portal.reports.expiring-documents');
+
+Route::get('/staff-portal/reports/expiring-documents/export', [StaffPortalController::class, 'expiringDocumentReportExport'])
+    ->middleware('auth')
+    ->name('staff.portal.reports.expiring-documents.export');
+
 Route::get('/staff-portal/settings', [StaffPortalController::class, 'settings'])
     ->middleware('auth')
     ->name('staff.portal.settings');

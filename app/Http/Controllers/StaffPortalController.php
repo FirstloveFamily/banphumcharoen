@@ -24,11 +24,13 @@ use App\Models\WorkerDocumentStatus;
 use App\Models\WorkerRegistrationRequest;
 use App\Exports\WorkersExport;
 use App\Exports\JobOrdersExport;
+use App\Exports\ExpiringDocumentsExport;
 use App\Support\UploadLimits;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -194,6 +196,158 @@ class StaffPortalController extends Controller
             'totalServiceFee', 'totalPaid', 'totalRemaining',
             'jobStats', 'nationalities', 'agingReceivables'
         ));
+    }
+
+    public function expiringDocumentReport(Request $request)
+    {
+        $this->authorizeStaff($request);
+
+        $report = $this->buildExpiringDocumentReport($request);
+        $rows = $report['rows'];
+        $dateFrom = $report['dateFrom'];
+        $dateTo = $report['dateTo'];
+        $documentType = $report['documentType'];
+        $documentTypeOptions = $report['documentTypeOptions'];
+        $activeStatus = $report['activeStatus'];
+        $employerId = $report['employerId'];
+        $employers = $report['employers'];
+        $workflowStatuses = $report['workflowStatuses'];
+
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $reportRows = new LengthAwarePaginator(
+            $rows->forPage($page, 20)->values(),
+            $rows->count(),
+            20,
+            $page,
+            ['path' => LengthAwarePaginator::resolveCurrentPath(), 'pageName' => 'page']
+        );
+        $reportRows->appends($request->query());
+
+        return view('staff-portal.reports.expiring-documents', compact(
+            'reportRows',
+            'dateFrom',
+            'dateTo',
+            'documentType',
+            'documentTypeOptions',
+            'activeStatus',
+            'employerId',
+            'employers',
+            'workflowStatuses',
+        ));
+    }
+
+    public function expiringDocumentReportExport(Request $request)
+    {
+        $this->authorizeStaff($request);
+
+        $report = $this->buildExpiringDocumentReport($request);
+
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new ExpiringDocumentsExport($report['rows']),
+            'expiring-documents-' . now()->format('Y-m-d') . '.xlsx'
+        );
+    }
+
+    private function buildExpiringDocumentReport(Request $request): array
+    {
+
+        $today = now()->startOfDay();
+        $dateFrom = Carbon::parse($request->query('date_from', $today->format('Y-m-d')))->startOfDay();
+        $dateTo = Carbon::parse($request->query('date_to', $today->copy()->addDays(45)->format('Y-m-d')))->endOfDay();
+        if ($dateTo->lt($dateFrom)) {
+            [$dateFrom, $dateTo] = [$dateTo->copy()->startOfDay(), $dateFrom->copy()->endOfDay()];
+        }
+
+        $documentType = (string) $request->query('document_type', '');
+        $documentTypeOptions = [
+            '' => 'เอกสารทุกประเภท',
+            'passport' => 'Passport',
+            'work_permit' => 'Work Permit',
+            'pink_card' => 'บัตรชมพู',
+            'visa' => 'Visa',
+            'report_90' => '90 วัน',
+        ];
+        if (! array_key_exists($documentType, $documentTypeOptions)) {
+            $documentType = '';
+        }
+
+        $activeStatus = (string) $request->query('active', 'active');
+        if (! in_array($activeStatus, ['', 'active', 'inactive'], true)) {
+            $activeStatus = 'active';
+        }
+
+        $employerId = (int) $request->query('employer_id', 0);
+        $workers = Worker::query()
+            ->with(['employer', 'documents.documentMaster'])
+            ->when($employerId > 0, fn ($query) => $query->where('employer_id', $employerId))
+            ->when($activeStatus === 'active', fn ($query) => $query->where('is_active', true))
+            ->when($activeStatus === 'inactive', fn ($query) => $query->where('is_active', false))
+            ->orderBy('first_name_th')
+            ->get();
+
+        $legacyDocuments = [
+            'passport' => ['label' => 'Passport', 'code' => 'PASSPORT', 'file' => 'passport_file', 'date' => 'passport_expiry'],
+            'work_permit' => ['label' => 'Work Permit', 'code' => 'WORK_PERMIT', 'file' => 'wp_file', 'date' => 'wp_expiry'],
+            'visa' => ['label' => 'Visa', 'code' => 'VISA', 'file' => 'visa_file', 'date' => 'visa_expiry'],
+            'report_90' => ['label' => '90 วัน', 'code' => 'REPORT_90', 'file' => 'report_90_days_file', 'date' => 'report_90_days_due'],
+        ];
+
+        $rows = collect();
+        foreach ($workers as $worker) {
+            foreach ($legacyDocuments as $type => $definition) {
+                if ($documentType !== '' && $documentType !== $type) {
+                    continue;
+                }
+
+                $date = $worker->{$definition['date']};
+                if (! $date || $date->lt($dateFrom) || $date->gt($dateTo)) {
+                    continue;
+                }
+
+                $document = $worker->documents->first(fn (WorkerDocument $item): bool => $item->documentMaster?->code === $definition['code']);
+                $rows->push([
+                    'worker' => $worker,
+                    'label' => $definition['label'],
+                    'expiry_date' => $date,
+                    'file_path' => $worker->{$definition['file']},
+                    'status' => $document?->status ?: ($worker->{$definition['file']} ? 'approved' : 'awaiting_upload'),
+                ]);
+            }
+
+            if ($documentType === '' || $documentType === 'pink_card') {
+                $pinkCard = $worker->documents->first(fn (WorkerDocument $item): bool =>
+                    $item->document_master_id === 12
+                    || $item->documentMaster?->name === 'บัตรชมพู'
+                    || $item->documentMaster?->code === 'Pink Identification Card for Foreign Workers'
+                );
+
+                if ($pinkCard?->expiry_date && $pinkCard->expiry_date->betweenIncluded($dateFrom, $dateTo)) {
+                    $rows->push([
+                        'worker' => $worker,
+                        'label' => 'บัตรชมพู',
+                        'expiry_date' => $pinkCard->expiry_date,
+                        'file_path' => $pinkCard->file_path,
+                        'status' => $pinkCard->status ?: 'awaiting_upload',
+                    ]);
+                }
+            }
+        }
+
+        $rows = $rows->sortBy(fn (array $row) => $row['expiry_date']->timestamp)->values();
+        $employers = Employer::query()->orderBy('company_name')->get();
+        $workflowStatuses = WorkerDocumentStatus::query()->active()->get()->keyBy('code');
+
+        return compact(
+            'rows',
+            'dateFrom',
+            'dateTo',
+            'documentType',
+            'documentTypeOptions',
+            'activeStatus',
+            'employerId',
+            'employers',
+            'workflowStatuses',
+        );
     }
 
     public function settings(Request $request)
