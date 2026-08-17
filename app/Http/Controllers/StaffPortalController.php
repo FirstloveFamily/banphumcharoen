@@ -248,6 +248,194 @@ class StaffPortalController extends Controller
         );
     }
 
+    public function workerDocumentDownload(Request $request)
+    {
+        $this->authorizeStaff($request);
+
+        $employers = Employer::query()
+            ->withCount('workers')
+            ->orderBy('company_name')
+            ->get();
+        $selectedEmployerId = (int) $request->query('employer_id', 0);
+        $selectedEmployer = $employers->firstWhere('id', $selectedEmployerId);
+
+        $workers = Worker::query()
+            ->with(['employer', 'workerPrefix', 'documents.documentMaster'])
+            ->when($selectedEmployerId > 0, fn ($query) => $query->where('employer_id', $selectedEmployerId))
+            ->orderBy('first_name_th')
+            ->orderBy('last_name_th')
+            ->get();
+
+        $documentTypes = $this->workerDocumentTypeOptions();
+
+        return view('staff-portal.worker-documents.download', compact(
+            'employers',
+            'selectedEmployer',
+            'selectedEmployerId',
+            'workers',
+            'documentTypes',
+        ));
+    }
+
+    public function workerDocumentDownloadStore(Request $request)
+    {
+        $this->authorizeStaff($request);
+
+        $validated = $request->validate([
+            'worker_ids' => ['required', 'array', 'min:1'],
+            'worker_ids.*' => ['integer', 'exists:workers,id'],
+            'document_types' => ['required', 'array', 'min:1'],
+            'document_types.*' => ['string'],
+        ]);
+
+        $documentTypes = $this->workerDocumentTypeOptions();
+        $requestedTypes = collect($validated['document_types'])
+            ->filter(fn (string $type): bool => $documentTypes->has($type))
+            ->values();
+
+        if ($requestedTypes->isEmpty()) {
+            return back()->withErrors(['document_types' => 'กรุณาเลือกประเภทเอกสารอย่างน้อย 1 รายการ']);
+        }
+
+        $workers = Worker::query()
+            ->with(['employer', 'documents.documentMaster'])
+            ->whereIn('id', $validated['worker_ids'])
+            ->get();
+        $files = collect();
+
+        foreach ($workers as $worker) {
+            foreach ($requestedTypes as $type) {
+                foreach ($this->filesForWorkerDocumentType($worker, $type) as $file) {
+                    $files->push($file);
+                }
+            }
+        }
+
+        $files = $files->unique('path')->values();
+        if ($files->isEmpty()) {
+            return back()->withErrors(['worker_ids' => 'ไม่พบไฟล์เอกสารของรายการที่เลือก']);
+        }
+
+        $zipPath = tempnam(storage_path('app'), 'worker-documents-');
+        $zip = new \ZipArchive();
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            return back()->withErrors(['worker_ids' => 'ไม่สามารถสร้างไฟล์ดาวน์โหลดได้']);
+        }
+
+        $addedFiles = 0;
+        $workerFolders = $workers->mapWithKeys(fn (Worker $worker): array => [
+            $worker->id => $this->safeFolderName($worker->full_name_th ?: $worker->full_name_en ?: 'worker-' . $worker->id),
+        ]);
+        foreach ($files as $file) {
+            $fullPath = Storage::disk('public')->path($file['path']);
+            if (is_file($fullPath)) {
+                $zip->addFile($fullPath, $workerFolders->get($file['worker_id']) . '/' . $file['name']);
+                $addedFiles++;
+            }
+        }
+        $zip->close();
+
+        if ($addedFiles === 0) {
+            @unlink($zipPath);
+            return back()->withErrors(['worker_ids' => 'ไม่พบไฟล์เอกสารที่สามารถดาวน์โหลดได้']);
+        }
+
+        return response()->download(
+            $zipPath,
+            'worker-documents-' . now()->format('Ymd_His') . '.zip',
+            ['Content-Type' => 'application/zip']
+        )->deleteFileAfterSend(true);
+    }
+
+    private function workerDocumentTypeOptions(): Collection
+    {
+        $options = collect([
+            'passport' => 'Passport',
+            'work_permit' => 'Work Permit',
+            'visa' => 'Visa',
+            'pink_card' => 'บัตรชมพู (Pink Card)',
+            'report_90' => '90 วัน',
+        ]);
+
+        DocumentMaster::query()
+            ->active()
+            ->orderBy('name')
+            ->get()
+            ->each(function (DocumentMaster $master) use ($options): void {
+                if ($this->canonicalWorkerDocumentType($master->name, $master->code)) {
+                    return;
+                }
+                $options->put('master:' . $master->id, $master->name);
+            });
+
+        return $options;
+    }
+
+    private function canonicalWorkerDocumentType(?string $name, ?string $code): ?string
+    {
+        $text = mb_strtolower(trim(($name ?? '') . ' ' . ($code ?? '')));
+
+        return match (true) {
+            str_contains($text, 'passport') || str_contains($text, 'หนังสือเดินทาง') => 'passport',
+            str_contains($text, 'work permit') || str_contains($text, 'ใบอนุญาตทำงาน') => 'work_permit',
+            str_contains($text, 'visa') || str_contains($text, 'วีซ่า') => 'visa',
+            str_contains($text, 'pink') || str_contains($text, 'ชมพู') => 'pink_card',
+            str_contains($text, '90') || str_contains($text, 'รายงานตัว') => 'report_90',
+            default => null,
+        };
+    }
+
+    private function filesForWorkerDocumentType(Worker $worker, string $type): array
+    {
+        $legacy = [
+            'passport' => ['label' => 'Passport', 'path' => $worker->passport_file],
+            'work_permit' => ['label' => 'Work Permit', 'path' => $worker->wp_file],
+            'visa' => ['label' => 'Visa', 'path' => $worker->visa_file],
+            'report_90' => ['label' => '90 Days', 'path' => $worker->report_90_days_file],
+        ];
+        $files = [];
+
+        if (isset($legacy[$type]) && $legacy[$type]['path']) {
+            $files[] = [
+                'path' => $legacy[$type]['path'],
+                'worker_id' => $worker->id,
+                'name' => $this->safeDownloadName($worker->full_name_th, $legacy[$type]['label'], $legacy[$type]['path']),
+            ];
+        }
+
+        foreach ($worker->documents as $document) {
+            $masterType = $this->canonicalWorkerDocumentType($document->documentMaster?->name, $document->documentMaster?->code);
+            $matches = str_starts_with($type, 'master:')
+                ? $type === 'master:' . $document->document_master_id
+                : $masterType === $type;
+
+            if ($matches && $document->file_path) {
+                $files[] = [
+                    'path' => $document->file_path,
+                    'worker_id' => $worker->id,
+                    'name' => $this->safeDownloadName($worker->full_name_th, $document->documentMaster?->name ?: $type, $document->file_path),
+                ];
+            }
+        }
+
+        return $files;
+    }
+
+    private function safeDownloadName(string $workerName, string $documentName, string $path): string
+    {
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+        $base = preg_replace('/[^\p{L}\p{N}\-_ ]/u', '', $workerName . '-' . $documentName);
+
+        return trim($base ?: 'document') . ($extension ? '.' . $extension : '');
+    }
+
+    private function safeFolderName(string $name): string
+    {
+        $folder = preg_replace('/[^\p{L}\p{N}\-_ ]/u', '', $name);
+
+        return trim($folder ?: 'worker');
+    }
+
     private function buildExpiringDocumentReport(Request $request): array
     {
 
