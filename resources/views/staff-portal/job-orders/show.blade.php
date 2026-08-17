@@ -274,6 +274,53 @@
                             <p class="text-center py-12 text-slate-400 bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">ยังไม่มีรายการเอกสารสำหรับใบงานนี้</p>
                         @endforelse
                     </div>
+
+                    @if (! in_array($jobOrder->status, ['completed', 'cancelled', 'rejected'], true) && $jobOrder->payment_status !== 'paid')
+                        <div class="mt-6 rounded-2xl border border-blue-100 bg-blue-50/60 p-5">
+                            <div class="mb-4">
+                                <p class="text-sm font-black text-blue-900">เพิ่มรายการชำระเงินโดย Staff</p>
+                                <p class="mt-1 text-[11px] text-blue-700">ใช้กรณี Staff อัปโหลดสลิปแทนนายจ้าง รายการจะถูกบันทึกเป็นตรวจสอบแล้ว</p>
+                            </div>
+                            <form method="POST" action="{{ route('staff.portal.job-orders.payments.store', $jobOrder) }}" enctype="multipart/form-data" class="space-y-4">
+                                @csrf
+                                <div class="grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                        <label for="staff_payment_amount" class="text-[10px] font-black uppercase tracking-wider text-slate-500">จำนวนเงิน *</label>
+                                        <input id="staff_payment_amount" name="amount" type="number" min="1" step="0.01" required class="mt-2 h-10 w-full rounded-xl border border-blue-100 bg-white px-3 text-sm font-semibold outline-none focus:border-blue-400" placeholder="0.00">
+                                    </div>
+                                    <div>
+                                        <label for="staff_payment_date" class="text-[10px] font-black uppercase tracking-wider text-slate-500">วันที่ชำระ *</label>
+                                        <input id="staff_payment_date" name="payment_date" type="date" value="{{ now()->format('Y-m-d') }}" required class="mt-2 h-10 w-full rounded-xl border border-blue-100 bg-white px-3 text-sm font-semibold outline-none focus:border-blue-400">
+                                    </div>
+                                    <div>
+                                        <label for="staff_payment_method" class="text-[10px] font-black uppercase tracking-wider text-slate-500">วิธีชำระเงิน *</label>
+                                        <select id="staff_payment_method" name="payment_method" required class="mt-2 h-10 w-full rounded-xl border border-blue-100 bg-white px-3 text-sm font-semibold outline-none focus:border-blue-400">
+                                            <option value="transfer">โอนเงิน</option>
+                                            <option value="promptpay">PromptPay</option>
+                                            <option value="credit_card">บัตรเครดิต</option>
+                                            <option value="cash">เงินสด</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="staff_payment_reference" class="text-[10px] font-black uppercase tracking-wider text-slate-500">เลขอ้างอิง</label>
+                                        <input id="staff_payment_reference" name="payment_reference" type="text" class="mt-2 h-10 w-full rounded-xl border border-blue-100 bg-white px-3 text-sm font-semibold outline-none focus:border-blue-400" placeholder="ถ้ามี">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label for="staff_payment_slip" class="text-[10px] font-black uppercase tracking-wider text-slate-500">สลิป / หลักฐานชำระเงิน *</label>
+                                    <input id="staff_payment_slip" name="slip_file" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" required class="mt-2 block w-full cursor-pointer rounded-xl border border-blue-100 bg-white p-2 text-[10px] font-medium text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-[10px] file:font-black file:text-blue-700">
+                                </div>
+                                <div>
+                                    <label for="staff_payment_note" class="text-[10px] font-black uppercase tracking-wider text-slate-500">หมายเหตุ</label>
+                                    <textarea id="staff_payment_note" name="note" rows="2" class="mt-2 w-full rounded-xl border border-blue-100 bg-white px-3 py-2 text-sm font-medium outline-none focus:border-blue-400" placeholder="รายละเอียดเพิ่มเติม"></textarea>
+                                </div>
+                                <button type="submit" class="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 text-xs font-black text-white shadow-md shadow-blue-700/20 transition hover:bg-blue-800">
+                                    <i data-lucide="upload" class="h-4 w-4"></i>
+                                    บันทึกสลิปแทนนายจ้าง
+                                </button>
+                            </form>
+                        </div>
+                    @endif
                 </section>
             </div>
 
@@ -363,6 +410,18 @@
                                         เปิดสลิปตรวจสอบ
                                     </a>
                                 @endif
+
+                                <form method="POST" action="{{ route('staff.portal.payments.slip.store', $payment) }}" enctype="multipart/form-data" class="mt-4 border-t border-slate-50 pt-4">
+                                    @csrf
+                                    <label class="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                        {{ $payment->slip_path ? 'เปลี่ยนไฟล์สลิป' : 'แนบไฟล์สลิป' }}
+                                        <input type="file" name="slip_file" accept=".jpg,.jpeg,.png,.webp,.pdf" required class="mt-2 block w-full cursor-pointer rounded-xl border border-slate-100 bg-slate-50/60 p-2 text-[10px] font-medium text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-[10px] file:font-black file:text-blue-700 hover:file:bg-blue-100">
+                                    </label>
+                                    <button type="submit" class="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 text-[10px] font-black uppercase tracking-widest text-white shadow-md shadow-slate-900/10 transition-all hover:bg-slate-800">
+                                        <i data-lucide="upload" class="h-3.5 w-3.5"></i>
+                                        {{ $payment->slip_path ? 'เปลี่ยนสลิป' : 'อัปโหลดสลิป' }}
+                                    </button>
+                                </form>
 
                                 @if ($payment->status === 'pending')
                                     <div class="mt-4 pt-4 border-t border-slate-50 space-y-3">

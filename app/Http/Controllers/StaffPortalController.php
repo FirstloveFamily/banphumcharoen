@@ -3183,6 +3183,44 @@ class StaffPortalController extends Controller
         return back()->with('success', 'อัปโหลดสลิปเรียบร้อยแล้ว');
     }
 
+    public function staffPaymentStore(Request $request, JobOrder $jobOrder)
+    {
+        $this->authorizeStaff($request);
+        abort_if(in_array($jobOrder->status, ['completed', 'cancelled', 'rejected'], true), 403);
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:1'],
+            'payment_date' => ['required', 'date'],
+            'payment_method' => ['required', 'in:transfer,promptpay,credit_card,cash'],
+            'payment_reference' => ['nullable', 'string', 'max:255'],
+            'slip_file' => UploadLimits::fileRules(true, ['jpg', 'jpeg', 'png', 'webp', 'pdf']),
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $path = $validated['slip_file']->store("job-order-payments/{$jobOrder->job_number}", 'public');
+
+        JobOrderPayment::create([
+            'job_order_id' => $jobOrder->id,
+            'amount' => $validated['amount'],
+            'payment_date' => $validated['payment_date'],
+            'payment_method' => $validated['payment_method'],
+            'payment_reference' => $validated['payment_reference'] ?? null,
+            'slip_path' => $path,
+            'status' => 'verified',
+            'received_by' => $request->user()->id,
+            'note' => $validated['note'] ?? 'เจ้าหน้าที่อัปโหลดสลิปแทนนายจ้าง',
+        ]);
+
+        JobOrderLog::create([
+            'job_order_id' => $jobOrder->id,
+            'user_id' => $request->user()->id,
+            'action' => 'เจ้าหน้าที่อัปโหลดสลิปแทนนายจ้าง',
+            'description' => 'บันทึกยอดชำระเงิน ' . number_format((float) $validated['amount'], 2) . ' บาท และตรวจสอบแล้ว',
+        ]);
+
+        return back()->with('success', 'บันทึกรายการชำระเงินและสลิปเรียบร้อยแล้ว');
+    }
+
     public function verifyDocument(Request $request, JobOrderChecklist $checklist)
     {
         $this->authorizeStaff($request);

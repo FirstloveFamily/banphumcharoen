@@ -2588,6 +2588,10 @@ Route::post('/staff-portal/payments/{payment}/slip', [StaffPortalController::cla
     ->middleware('auth')
     ->name('staff.portal.payments.slip.store');
 
+Route::post('/staff-portal/job-orders/{jobOrder}/payments', [StaffPortalController::class, 'staffPaymentStore'])
+    ->middleware('auth')
+    ->name('staff.portal.job-orders.payments.store');
+
 Route::post('/staff-portal/payments/{payment}/verify', [StaffPortalController::class, 'verifyPayment'])
     ->middleware('auth')
     ->name('staff.portal.payments.verify');
