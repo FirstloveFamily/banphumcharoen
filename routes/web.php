@@ -2178,6 +2178,14 @@ Route::get('/staff-portal/reports/expiring-documents/export', [StaffPortalContro
     ->middleware('auth')
     ->name('staff.portal.reports.expiring-documents.export');
 
+Route::get('/staff-portal/worker-documents/download', [StaffPortalController::class, 'workerDocumentDownload'])
+    ->middleware('auth')
+    ->name('staff.portal.worker-documents.download');
+
+Route::post('/staff-portal/worker-documents/download', [StaffPortalController::class, 'workerDocumentDownloadStore'])
+    ->middleware('auth')
+    ->name('staff.portal.worker-documents.download.store');
+
 
 Route::get('/staff-portal/settings', [StaffPortalController::class, 'settings'])
     ->middleware('auth')

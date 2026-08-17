@@ -257,6 +257,14 @@
                     <i data-lucide="file-clock" class="h-5 w-5"></i>
                     เอกสารใกล้หมดอายุ
                 </a>
+                <a href="{{ route('staff.portal.worker-documents.download') }}" @class([
+                    'group flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all duration-200 rounded-lg',
+                    'nav-item-active' => request()->routeIs('staff.portal.worker-documents.*'),
+                    'text-slate-300 hover:text-white hover:bg-white/10' => ! request()->routeIs('staff.portal.worker-documents.*'),
+                ])>
+                    <i data-lucide="folder-down" class="h-5 w-5"></i>
+                    ดึงเอกสารแรงงาน
+                </a>
 
                 <div class="pt-4 pb-2 px-4">
                     <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Core Management</p>
