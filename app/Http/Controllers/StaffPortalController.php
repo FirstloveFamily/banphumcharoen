@@ -2201,8 +2201,13 @@ class StaffPortalController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name_th')
             ->get();
+        $workflowStatuses = WorkerDocumentStatus::query()
+            ->active()
+            ->orderBy('sort_order')
+            ->orderBy('name_th')
+            ->get();
 
-        return view('staff-portal.workers.create', compact('employers', 'nationalities', 'workerPrefixes') + ['requestMode' => false]);
+        return view('staff-portal.workers.create', compact('employers', 'nationalities', 'workerPrefixes', 'workflowStatuses') + ['requestMode' => false]);
     }
 
     public function workerStore(Request $request)
@@ -2229,6 +2234,8 @@ class StaffPortalController extends Controller
             'wp_expiry' => 'nullable|date',
             'visa_expiry' => 'nullable|date',
             'report_90_days_due' => 'nullable|date',
+            'document_status' => ['nullable', 'array'],
+            'document_status.*' => [Rule::in(WorkerDocumentStatus::query()->active()->pluck('code')->all())],
 
             'photo_file' => UploadLimits::imageRules(),
             'passport_file' => UploadLimits::documentRules(false, ['pdf', 'jpg', 'jpeg', 'png']),
@@ -2258,8 +2265,12 @@ class StaffPortalController extends Controller
 
         unset($validated['photo_file']);
 
+        $documentStatuses = $validated['document_status'] ?? [];
+        unset($validated['document_status']);
+
         $worker = \App\Models\Worker::create($validated);
         $this->syncLegacyWorkerDocuments($worker);
+        $this->updateLegacyWorkerDocumentStatuses($worker, $documentStatuses, $request);
 
         return redirect()->route('staff.portal.workers.show', $worker)
             ->with('success', 'เพิ่มข้อมูลแรงงานเรียบร้อยแล้ว');

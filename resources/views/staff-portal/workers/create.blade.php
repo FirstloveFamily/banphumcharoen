@@ -68,6 +68,7 @@
                 $employer->email,
             ])))),
         ])->values();
+        $workflowOptions = ($workflowStatuses ?? collect())->keyBy('code');
     @endphp
 
     <div class="space-y-8 max-w-5xl mx-auto">
@@ -248,7 +249,7 @@
 
                 <div class="grid lg:grid-cols-2 gap-12">
                     <!-- Passport -->
-                    <div class="space-y-6">
+                    <div class="order-1 space-y-6">
                         <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                             <span class="h-1.5 w-1.5 rounded-full bg-blue-600"></span>
                             Passport Information
@@ -270,12 +271,19 @@
                                 <input type="file" name="passport_file" accept=".pdf,.jpg,.jpeg,.png"
                                     class="w-full text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 transition-all border border-slate-100 rounded-2xl p-1 bg-slate-50/50">
                                 <p class="text-xs text-amber-600">รูปไม่เกิน 3 MB, ไฟล์เอกสารไม่เกิน 10 MB</p>
+                                @if (! $requestMode)
+                                    <select name="document_status[passport]" class="h-11 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all appearance-none">
+                                        @foreach ($workflowOptions as $workflow)
+                                            <option value="{{ $workflow->code }}" @selected(old('document_status.passport', 'awaiting_upload') === $workflow->code)>{{ $workflow->name_th }}</option>
+                                        @endforeach
+                                    </select>
+                                @endif
                             </div>
                         </div>
                     </div>
 
                     <!-- Pink Card -->
-                    <div class="space-y-6">
+                    <div class="order-4 space-y-6">
                         <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                             <span class="h-1.5 w-1.5 rounded-full bg-pink-600"></span>
                             Pink Card Information
@@ -297,12 +305,19 @@
                                 <input type="file" name="pink_card_file" accept=".pdf,.jpg,.jpeg,.png"
                                     class="w-full text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 transition-all border border-slate-100 rounded-2xl p-1 bg-slate-50/50">
                                 <p class="text-xs text-amber-600">รูปไม่เกิน 3 MB, ไฟล์เอกสารไม่เกิน 10 MB</p>
+                                @if (! $requestMode)
+                                    <select name="document_status[pink_card]" class="h-11 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all appearance-none">
+                                        @foreach ($workflowOptions as $workflow)
+                                            <option value="{{ $workflow->code }}" @selected(old('document_status.pink_card', 'awaiting_upload') === $workflow->code)>{{ $workflow->name_th }}</option>
+                                        @endforeach
+                                    </select>
+                                @endif
                             </div>
                         </div>
                     </div>
 
                     <!-- Work Permit -->
-                    <div class="space-y-6">
+                    <div class="order-2 space-y-6">
                         <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                             <span class="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
                             Work Permit Information
@@ -323,14 +338,19 @@
                                 <input type="file" name="wp_file" accept=".pdf,.jpg,.jpeg,.png"
                                     class="w-full text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 transition-all border border-slate-100 rounded-2xl p-1 bg-slate-50/50">
                                 <p class="text-xs text-amber-600">รูปไม่เกิน 3 MB, ไฟล์เอกสารไม่เกิน 10 MB</p>
+                                @if (! $requestMode)
+                                    <select name="document_status[work_permit]" class="h-11 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all appearance-none">
+                                        @foreach ($workflowOptions as $workflow)
+                                            <option value="{{ $workflow->code }}" @selected(old('document_status.work_permit', 'awaiting_upload') === $workflow->code)>{{ $workflow->name_th }}</option>
+                                        @endforeach
+                                    </select>
+                                @endif
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <div class="grid lg:grid-cols-2 gap-12 mt-12 pt-12 border-t border-slate-50">
+                <div class="contents">
                     <!-- Visa -->
-                    <div class="space-y-6">
+                    <div class="order-3 space-y-6">
                         <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                             <span class="h-1.5 w-1.5 rounded-full bg-amber-600"></span>
                             Visa Status
@@ -346,12 +366,19 @@
                                 <input type="file" name="visa_file" accept=".pdf,.jpg,.jpeg,.png"
                                     class="w-full text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 transition-all border border-slate-100 rounded-2xl p-1 bg-slate-50/50">
                                 <p class="text-xs text-amber-600">รูปไม่เกิน 3 MB, ไฟล์เอกสารไม่เกิน 10 MB</p>
+                                @if (! $requestMode)
+                                    <select name="document_status[visa]" class="h-11 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all appearance-none">
+                                        @foreach ($workflowOptions as $workflow)
+                                            <option value="{{ $workflow->code }}" @selected(old('document_status.visa', 'awaiting_upload') === $workflow->code)>{{ $workflow->name_th }}</option>
+                                        @endforeach
+                                    </select>
+                                @endif
                             </div>
                         </div>
                     </div>
 
                     <!-- 90 Days Report -->
-                    <div class="space-y-6">
+                    <div class="order-5 lg:col-span-2 space-y-6">
                         <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                             <span class="h-1.5 w-1.5 rounded-full bg-slate-900"></span>
                             90-Days Report
@@ -367,9 +394,17 @@
                                 <input type="file" name="report_90_days_file" accept=".pdf,.jpg,.jpeg,.png"
                                     class="w-full text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 transition-all border border-slate-100 rounded-2xl p-1 bg-slate-50/50">
                                 <p class="text-xs text-amber-600">รูปไม่เกิน 3 MB, ไฟล์เอกสารไม่เกิน 10 MB</p>
+                                @if (! $requestMode)
+                                    <select name="document_status[report_90]" class="h-11 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all appearance-none">
+                                        @foreach ($workflowOptions as $workflow)
+                                            <option value="{{ $workflow->code }}" @selected(old('document_status.report_90', 'awaiting_upload') === $workflow->code)>{{ $workflow->name_th }}</option>
+                                        @endforeach
+                                    </select>
+                                @endif
                             </div>
                         </div>
                     </div>
+                </div>
                 </div>
             </section>
 
