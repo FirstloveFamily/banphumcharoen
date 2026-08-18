@@ -256,7 +256,7 @@
 
                 <div class="grid lg:grid-cols-2 gap-12">
                     <!-- Passport -->
-                    <div class="space-y-6">
+                    <div class="order-1 space-y-6">
                         <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                             <span class="h-1.5 w-1.5 rounded-full bg-blue-600"></span>
                             Passport Information
@@ -297,8 +297,50 @@
                         </div>
                     </div>
 
+                    <!-- Pink Card -->
+                    <div class="order-4 space-y-6">
+                        <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                            <span class="h-1.5 w-1.5 rounded-full bg-pink-600"></span>
+                            Pink Card Information
+                            <span class="text-xs font-medium normal-case tracking-normal text-slate-400">(ไม่บังคับ)</span>
+                        </h4>
+                        <div class="grid gap-6">
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold uppercase tracking-wider text-slate-500">เลขบัตรชมพู</label>
+                                <input type="text" name="pink_card_number" value="{{ old('pink_card_number', $worker->pink_card_number) }}"
+                                    class="h-12 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-bold font-mono outline-none focus:border-blue-400 focus:bg-white transition-all">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold uppercase tracking-wider text-slate-500">วันหมดอายุบัตรชมพู</label>
+                                <input type="date" name="pink_card_expiry" value="{{ old('pink_card_expiry', $worker->pink_card_expiry?->format('Y-m-d')) }}"
+                                    class="h-12 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold uppercase tracking-wider text-slate-500">อัปเดตไฟล์บัตรชมพู</label>
+                                <div class="flex items-center gap-3">
+                                    @if($worker->pink_card_file)
+                                        <a href="{{ asset('storage/' . $worker->pink_card_file) }}" target="_blank" class="grid h-10 w-10 place-items-center rounded-xl bg-pink-50 text-pink-600 hover:bg-pink-100 shadow-sm border border-pink-100 transition-all">
+                                            <i data-lucide="file-text" class="h-4 w-4"></i>
+                                        </a>
+                                    @endif
+                                    <input type="file" name="pink_card_file" accept=".pdf,.jpg,.jpeg,.png"
+                                        class="flex-1 text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 transition-all border border-slate-100 rounded-2xl p-1 bg-slate-50/50">
+                                </div>
+                                <p class="text-xs text-amber-600">รูปไม่เกิน 3 MB, ไฟล์เอกสารไม่เกิน 10 MB</p>
+                                <div class="space-y-2">
+                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-500">สถานะเอกสาร</label>
+                                    <select name="document_status[pink_card]" class="h-11 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all appearance-none">
+                                        @foreach ($workflowOptions as $workflow)
+                                            <option value="{{ $workflow->code }}" @selected(old('document_status.pink_card', $worker->pink_card_status ?: ($worker->pink_card_file ? 'approved' : 'awaiting_upload')) === $workflow->code)>{{ $workflow->name_th }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Work Permit -->
-                    <div class="space-y-6">
+                    <div class="order-2 space-y-6">
                         <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                             <span class="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
                             Work Permit Information
@@ -337,11 +379,9 @@
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <div class="grid lg:grid-cols-2 gap-12 mt-12 pt-12 border-t border-slate-50">
+                <div class="contents">
                     <!-- Visa -->
-                    <div class="space-y-6">
+                    <div class="order-3 space-y-6">
                         <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                             <span class="h-1.5 w-1.5 rounded-full bg-amber-600"></span>
                             Visa Status
@@ -377,7 +417,7 @@
                     </div>
 
                     <!-- 90 Days Report -->
-                    <div class="space-y-6">
+                    <div class="order-5 lg:col-span-2 space-y-6">
                         <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                             <span class="h-1.5 w-1.5 rounded-full bg-slate-900"></span>
                             90-Days Report
@@ -411,6 +451,7 @@
                             </div>
                         </div>
                     </div>
+                </div>
                 </div>
             </section>
 

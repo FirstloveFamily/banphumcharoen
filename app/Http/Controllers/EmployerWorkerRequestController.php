@@ -40,12 +40,15 @@ class EmployerWorkerRequestController extends Controller
             'gender' => ['nullable', 'string', 'max:20'],
             'passport_number' => ['nullable', 'string', 'max:100'],
             'passport_expiry' => ['nullable', 'date'],
+            'pink_card_number' => ['nullable', 'string', 'max:100'],
+            'pink_card_expiry' => ['nullable', 'date'],
             'wp_number' => ['nullable', 'string', 'max:100'],
             'wp_expiry' => ['nullable', 'date'],
             'visa_expiry' => ['nullable', 'date'],
             'report_90_days_due' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:2000'],
             'passport_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'pink_card_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
             'wp_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
             'visa_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
             'report_90_days_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
@@ -53,7 +56,7 @@ class EmployerWorkerRequestController extends Controller
         ]);
 
         $requestData = collect($validated)->except([
-            'passport_file', 'wp_file', 'visa_file', 'report_90_days_file', 'photo_file',
+            'passport_file', 'pink_card_file', 'wp_file', 'visa_file', 'report_90_days_file', 'photo_file',
         ])->all();
 
         $registrationRequest = WorkerRegistrationRequest::create([
@@ -63,7 +66,7 @@ class EmployerWorkerRequestController extends Controller
             'data' => $requestData,
         ]);
 
-        foreach (['passport_file', 'wp_file', 'visa_file', 'report_90_days_file', 'photo_file'] as $field) {
+        foreach (['passport_file', 'pink_card_file', 'wp_file', 'visa_file', 'report_90_days_file', 'photo_file'] as $field) {
             if ($request->hasFile($field)) {
                 $requestData[$field] = $request->file($field)->store("worker-registration-requests/{$registrationRequest->id}", 'public');
             }

@@ -26,11 +26,15 @@ class Worker extends Model
         'gender',
         'passport_number',
         'passport_expiry',
+        'pink_card_number',
+        'pink_card_expiry',
         'wp_number',
         'wp_expiry',
         'visa_expiry',
         'report_90_days_due',
         'passport_file',
+        'pink_card_file',
+        'pink_card_status',
         'wp_file',
         'visa_file',
         'report_90_days_file',
@@ -41,6 +45,7 @@ class Worker extends Model
     protected $casts = [
         'birth_date' => 'date',
         'passport_expiry' => 'date',
+        'pink_card_expiry' => 'date',
         'wp_expiry' => 'date',
         'visa_expiry' => 'date',
         'report_90_days_due' => 'date',
@@ -136,6 +141,7 @@ class Worker extends Model
     {
         return collect([
             ['name' => 'Passport Copy', 'file' => $this->passport_file, 'expiry_date' => $this->passport_expiry],
+            ['name' => 'Pink Card', 'file' => $this->pink_card_file, 'expiry_date' => $this->pink_card_expiry],
             ['name' => 'Work Permit Copy', 'file' => $this->wp_file, 'expiry_date' => $this->wp_expiry],
             ['name' => 'Visa Copy', 'file' => $this->visa_file, 'expiry_date' => $this->visa_expiry],
             ['name' => '90-Days Report', 'file' => $this->report_90_days_file, 'expiry_date' => $this->report_90_days_due],

@@ -509,13 +509,14 @@ class StaffPortalController extends Controller
                     || $item->documentMaster?->code === 'Pink Identification Card for Foreign Workers'
                 );
 
-                if ($pinkCard?->expiry_date && $pinkCard->expiry_date->betweenIncluded($dateFrom, $dateTo)) {
+                $pinkExpiry = $worker->pink_card_expiry ?: $pinkCard?->expiry_date;
+                if ($pinkExpiry && $pinkExpiry->betweenIncluded($dateFrom, $dateTo)) {
                     $rows->push([
                         'worker' => $worker,
                         'label' => 'บัตรชมพู',
-                        'expiry_date' => $pinkCard->expiry_date,
-                        'file_path' => $pinkCard->file_path,
-                        'status' => $pinkCard->status ?: 'awaiting_upload',
+                        'expiry_date' => $pinkExpiry,
+                        'file_path' => $worker->pink_card_file ?: $pinkCard?->file_path,
+                        'status' => $worker->pink_card_status ?: $pinkCard?->status ?: 'awaiting_upload',
                     ]);
                 }
             }
@@ -1918,6 +1919,7 @@ class StaffPortalController extends Controller
             'name' => 'ชื่อแรงงาน',
             'nearest_expiry' => 'วันหมดอายุใกล้ที่สุด',
             'passport_expiry' => 'Passport',
+            'pink_card_expiry' => 'บัตรชมพู',
             'wp_expiry' => 'Work Permit',
             'visa_expiry' => 'Visa',
             'report_90_days_due' => '90 Days Report',
@@ -1939,6 +1941,7 @@ class StaffPortalController extends Controller
                         ->orWhere('first_name_en', 'like', "%{$keyword}%")
                         ->orWhere('last_name_en', 'like', "%{$keyword}%")
                         ->orWhere('passport_number', 'like', "%{$keyword}%")
+                        ->orWhere('pink_card_number', 'like', "%{$keyword}%")
                         ->orWhere('wp_number', 'like', "%{$keyword}%")
                         ->orWhereHas('employer', fn($employerQuery) => $employerQuery->where('company_name', 'like', "%{$keyword}%"));
                 });
@@ -1949,6 +1952,7 @@ class StaffPortalController extends Controller
                         ->whereBetween('wp_expiry', [$today, $soon])
                         ->orWhereBetween('visa_expiry', [$today, $soon])
                         ->orWhereBetween('passport_expiry', [$today, $soon])
+                        ->orWhereBetween('pink_card_expiry', [$today, $soon])
                         ->orWhereBetween('report_90_days_due', [$today, $soon]);
                 });
             })
@@ -1958,6 +1962,7 @@ class StaffPortalController extends Controller
                         ->whereDate('wp_expiry', '<', $today)
                         ->orWhereDate('visa_expiry', '<', $today)
                         ->orWhereDate('passport_expiry', '<', $today)
+                        ->orWhereDate('pink_card_expiry', '<', $today)
                         ->orWhereDate('report_90_days_due', '<', $today);
                 });
             })
@@ -1972,13 +1977,16 @@ class StaffPortalController extends Controller
                 if (isset($legacyColumns[$documentExpiry])) {
                     $query->whereDate($legacyColumns[$documentExpiry], '<', $today);
                 } elseif ($documentExpiry === 'pink_card') {
-                    $query->whereHas('documents', function ($documentQuery) use ($today): void {
-                        $documentQuery
-                            ->whereDate('expiry_date', '<', $today)
-                            ->whereHas('documentMaster', fn ($masterQuery) => $masterQuery
-                                ->where('id', 12)
-                                ->orWhere('name', 'บัตรชมพู')
-                                ->orWhere('code', 'Pink Identification Card for Foreign Workers'));
+                    $query->where(function ($subQuery) use ($today): void {
+                        $subQuery->whereDate('pink_card_expiry', '<', $today)
+                            ->orWhereHas('documents', function ($documentQuery) use ($today): void {
+                                $documentQuery
+                                    ->whereDate('expiry_date', '<', $today)
+                                    ->whereHas('documentMaster', fn ($masterQuery) => $masterQuery
+                                        ->where('id', 12)
+                                        ->orWhere('name', 'บัตรชมพู')
+                                        ->orWhere('code', 'Pink Identification Card for Foreign Workers'));
+                            });
                     });
                 }
             })
@@ -1986,7 +1994,7 @@ class StaffPortalController extends Controller
             ->when($activeStatus === 'inactive', fn($query) => $query->where('is_active', false));
 
         if ($sort === 'nearest_expiry') {
-            $expiryColumns = ['passport_expiry', 'wp_expiry', 'visa_expiry', 'report_90_days_due'];
+            $expiryColumns = ['passport_expiry', 'pink_card_expiry', 'wp_expiry', 'visa_expiry', 'report_90_days_due'];
             $driver = DB::connection()->getDriverName();
             $parts = collect($expiryColumns)
                 ->map(fn (string $column): string => "COALESCE({$column}, '9999-12-31')")
@@ -2022,6 +2030,7 @@ class StaffPortalController extends Controller
                         ->whereBetween('wp_expiry', [$today, $soon])
                         ->orWhereBetween('visa_expiry', [$today, $soon])
                         ->orWhereBetween('passport_expiry', [$today, $soon])
+                        ->orWhereBetween('pink_card_expiry', [$today, $soon])
                         ->orWhereBetween('report_90_days_due', [$today, $soon]);
                 })
                 ->count(),
@@ -2031,6 +2040,7 @@ class StaffPortalController extends Controller
                         ->whereDate('wp_expiry', '<', $today)
                         ->orWhereDate('visa_expiry', '<', $today)
                         ->orWhereDate('passport_expiry', '<', $today)
+                        ->orWhereDate('pink_card_expiry', '<', $today)
                         ->orWhereDate('report_90_days_due', '<', $today);
                 })
             ->count(),
@@ -2071,7 +2081,7 @@ class StaffPortalController extends Controller
         }
 
         $sort = (string) $request->query('sort', 'name');
-        if (! in_array($sort, ['name', 'nearest_expiry', 'passport_expiry', 'wp_expiry', 'visa_expiry', 'report_90_days_due'], true)) {
+        if (! in_array($sort, ['name', 'nearest_expiry', 'passport_expiry', 'pink_card_expiry', 'wp_expiry', 'visa_expiry', 'report_90_days_due'], true)) {
             $sort = 'name';
         }
 
@@ -2124,13 +2134,15 @@ class StaffPortalController extends Controller
             'gender' => ['nullable', 'string', 'max:20'],
             'passport_number' => ['nullable', 'string', 'max:100', Rule::unique('workers', 'passport_number')],
             'passport_expiry' => ['nullable', 'date'],
+            'pink_card_number' => ['nullable', 'string', 'max:100'],
+            'pink_card_expiry' => ['nullable', 'date'],
             'wp_number' => ['nullable', 'string', 'max:100', Rule::unique('workers', 'wp_number')],
             'wp_expiry' => ['nullable', 'date'],
             'visa_expiry' => ['nullable', 'date'],
             'report_90_days_due' => ['nullable', 'date'],
         ])->validate();
 
-        foreach (['passport_file', 'wp_file', 'visa_file', 'report_90_days_file', 'photo_file'] as $field) {
+        foreach (['passport_file', 'pink_card_file', 'wp_file', 'visa_file', 'report_90_days_file', 'photo_file'] as $field) {
             if (empty($data[$field])) {
                 continue;
             }
@@ -2138,6 +2150,7 @@ class StaffPortalController extends Controller
             $newPath = match ($field) {
                 'photo_file' => 'worker-photos/' . basename($data[$field]),
                 'passport_file' => 'workers/passports/' . basename($data[$field]),
+                'pink_card_file' => 'workers/pink_cards/' . basename($data[$field]),
                 'wp_file' => 'workers/wp/' . basename($data[$field]),
                 'visa_file' => 'workers/visa/' . basename($data[$field]),
                 default => 'workers/report_90_days/' . basename($data[$field]),
@@ -2210,6 +2223,8 @@ class StaffPortalController extends Controller
 
             'passport_number' => ['nullable', 'string', 'max:100', Rule::unique('workers', 'passport_number')],
             'passport_expiry' => 'nullable|date',
+            'pink_card_number' => 'nullable|string|max:100',
+            'pink_card_expiry' => 'nullable|date',
             'wp_number' => 'nullable|string|max:100',
             'wp_expiry' => 'nullable|date',
             'visa_expiry' => 'nullable|date',
@@ -2217,6 +2232,7 @@ class StaffPortalController extends Controller
 
             'photo_file' => UploadLimits::imageRules(),
             'passport_file' => UploadLimits::documentRules(false, ['pdf', 'jpg', 'jpeg', 'png']),
+            'pink_card_file' => UploadLimits::documentRules(false, ['pdf', 'jpg', 'jpeg', 'png']),
             'wp_file' => UploadLimits::documentRules(false, ['pdf', 'jpg', 'jpeg', 'png']),
             'visa_file' => UploadLimits::documentRules(false, ['pdf', 'jpg', 'jpeg', 'png']),
             'report_90_days_file' => UploadLimits::documentRules(false, ['pdf', 'jpg', 'jpeg', 'png']),
@@ -2233,7 +2249,7 @@ class StaffPortalController extends Controller
             $validated['photo_path'] = $request->file('photo_file')->store('worker-photos', 'public');
         }
 
-        $files = ['passport_file' => 'workers/passports', 'wp_file' => 'workers/wp', 'visa_file' => 'workers/visa', 'report_90_days_file' => 'workers/report_90_days'];
+        $files = ['passport_file' => 'workers/passports', 'pink_card_file' => 'workers/pink_cards', 'wp_file' => 'workers/wp', 'visa_file' => 'workers/visa', 'report_90_days_file' => 'workers/report_90_days'];
         foreach ($files as $field => $path) {
             if ($request->hasFile($field)) {
                 $validated[$field] = $request->file($field)->store($path, 'public');
@@ -2278,6 +2294,7 @@ class StaffPortalController extends Controller
 
         $expiryCards = [
             ['label' => 'Passport', 'date' => $worker->passport_expiry, 'icon' => 'badge-check'],
+            ['label' => 'บัตรชมพู', 'date' => $worker->pink_card_expiry, 'icon' => 'contact'],
             ['label' => 'Work Permit', 'date' => $worker->wp_expiry, 'icon' => 'id-card'],
             ['label' => 'Visa', 'date' => $worker->visa_expiry, 'icon' => 'stamp'],
             ['label' => '90 Days Report', 'date' => $worker->report_90_days_due, 'icon' => 'calendar-clock'],
@@ -2343,6 +2360,8 @@ class StaffPortalController extends Controller
                 Rule::unique('workers', 'passport_number')->ignore($worker->id),
             ],
             'passport_expiry' => 'nullable|date',
+            'pink_card_number' => 'nullable|string|max:100',
+            'pink_card_expiry' => 'nullable|date',
             'wp_number' => 'nullable|string|max:100',
             'wp_expiry' => 'nullable|date',
             'visa_expiry' => 'nullable|date',
@@ -2350,6 +2369,7 @@ class StaffPortalController extends Controller
 
             'photo_file' => UploadLimits::imageRules(),
             'passport_file' => UploadLimits::documentRules(false, ['pdf', 'jpg', 'jpeg', 'png']),
+            'pink_card_file' => UploadLimits::documentRules(false, ['pdf', 'jpg', 'jpeg', 'png']),
             'wp_file' => UploadLimits::documentRules(false, ['pdf', 'jpg', 'jpeg', 'png']),
             'visa_file' => UploadLimits::documentRules(false, ['pdf', 'jpg', 'jpeg', 'png']),
             'report_90_days_file' => UploadLimits::documentRules(false, ['pdf', 'jpg', 'jpeg', 'png']),
@@ -2371,7 +2391,7 @@ class StaffPortalController extends Controller
             $validated['photo_path'] = $request->file('photo_file')->store('worker-photos', 'public');
         }
 
-        $files = ['passport_file' => 'workers/passports', 'wp_file' => 'workers/wp', 'visa_file' => 'workers/visa', 'report_90_days_file' => 'workers/report_90_days'];
+        $files = ['passport_file' => 'workers/passports', 'pink_card_file' => 'workers/pink_cards', 'wp_file' => 'workers/wp', 'visa_file' => 'workers/visa', 'report_90_days_file' => 'workers/report_90_days'];
         foreach ($files as $field => $path) {
             if ($request->hasFile($field)) {
                 if ($worker->$field) {
@@ -2404,6 +2424,7 @@ class StaffPortalController extends Controller
             foreach ([
                 'photo_path',
                 'passport_file',
+                'pink_card_file',
                 'wp_file',
                 'visa_file',
                 'report_90_days_file',
@@ -3378,6 +3399,31 @@ class StaffPortalController extends Controller
                 ]);
             }
         }
+
+        if ($worker->pink_card_file || $worker->pink_card_expiry) {
+            $pinkMaster = DocumentMaster::query()
+                ->where(function ($query): void {
+                    $query->where('id', 12)
+                        ->orWhere('name', 'บัตรชมพู')
+                        ->orWhere('code', 'Pink Identification Card for Foreign Workers');
+                })
+                ->first();
+
+            if ($pinkMaster) {
+                $document = $worker->documents()->where('document_master_id', $pinkMaster->id)->first();
+                $values = [
+                    'file_path' => $worker->pink_card_file,
+                    'expiry_date' => $worker->pink_card_expiry,
+                    'status' => $worker->pink_card_status ?: ($document?->status ?: 'approved'),
+                ];
+
+                if ($document) {
+                    $document->update($values);
+                } else {
+                    $worker->documents()->create(array_merge($values, ['document_master_id' => $pinkMaster->id]));
+                }
+            }
+        }
     }
 
     private function updateLegacyWorkerDocumentStatuses(Worker $worker, array $statuses, Request $request): void
@@ -3393,6 +3439,10 @@ class StaffPortalController extends Controller
             'visa' => 'VISA',
             'report_90' => 'REPORT_90',
         ];
+
+        if (array_key_exists('pink_card', $statuses)) {
+            $worker->update(['pink_card_status' => $statuses['pink_card']]);
+        }
 
         foreach ($codeByField as $field => $code) {
             $document = $worker->documents->first(fn (WorkerDocument $item): bool => $item->documentMaster?->code === $code);
@@ -3467,6 +3517,7 @@ class StaffPortalController extends Controller
                 $query
                     ->whereDate('passport_expiry', '<=', $limit)
                     ->orWhereDate('wp_expiry', '<=', $limit)
+                    ->orWhereDate('pink_card_expiry', '<=', $limit)
                     ->orWhereDate('visa_expiry', '<=', $limit)
                     ->orWhereDate('report_90_days_due', '<=', $limit);
             })
@@ -3475,6 +3526,7 @@ class StaffPortalController extends Controller
             ->flatMap(function (Worker $worker): array {
                 return collect([
                     ['document' => 'Passport', 'date' => $worker->passport_expiry],
+                    ['document' => 'บัตรชมพู', 'date' => $worker->pink_card_expiry],
                     ['document' => 'Work Permit', 'date' => $worker->wp_expiry],
                     ['document' => 'Visa', 'date' => $worker->visa_expiry],
                     ['document' => '90 Days Report', 'date' => $worker->report_90_days_due],
@@ -3495,6 +3547,11 @@ class StaffPortalController extends Controller
             ->whereDate('expiry_date', '<=', $limit)
             ->limit(100)
             ->get()
+            ->filter(fn (WorkerDocument $document): bool => ! (
+                $document->documentMaster?->id === 12
+                || $document->documentMaster?->name === 'บัตรชมพู'
+                || $document->documentMaster?->code === 'Pink Identification Card for Foreign Workers'
+            ))
             ->map(fn(WorkerDocument $document): array => [
                 'worker' => $document->worker?->full_name_th ?: $document->worker?->full_name_en ?: '-',
                 'employer' => $document->worker?->employer?->company_name ?? '-',

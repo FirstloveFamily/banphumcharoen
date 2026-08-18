@@ -1816,6 +1816,7 @@ Route::get('/employers/workers', function (Request $request) {
                     ->orWhere('first_name_en', 'like', "%{$keyword}%")
                     ->orWhere('last_name_en', 'like', "%{$keyword}%")
                     ->orWhere('passport_number', 'like', "%{$keyword}%")
+                    ->orWhere('pink_card_number', 'like', "%{$keyword}%")
                     ->orWhere('wp_number', 'like', "%{$keyword}%");
             });
         })
@@ -1824,6 +1825,7 @@ Route::get('/employers/workers', function (Request $request) {
                 $subQuery->whereBetween('wp_expiry', [$today, $soon])
                     ->orWhereBetween('visa_expiry', [$today, $soon])
                     ->orWhereBetween('passport_expiry', [$today, $soon])
+                    ->orWhereBetween('pink_card_expiry', [$today, $soon])
                     ->orWhereBetween('report_90_days_due', [$today, $soon]);
             });
         })
@@ -1832,6 +1834,7 @@ Route::get('/employers/workers', function (Request $request) {
                 $subQuery->whereDate('wp_expiry', '<', $today)
                     ->orWhereDate('visa_expiry', '<', $today)
                     ->orWhereDate('passport_expiry', '<', $today)
+                    ->orWhereDate('pink_card_expiry', '<', $today)
                     ->orWhereDate('report_90_days_due', '<', $today);
             });
         })

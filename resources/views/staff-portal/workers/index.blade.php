@@ -277,9 +277,9 @@
                                 $visa = $getDateStatus($worker->visa_expiry);
                                 $report = $getDateStatus($worker->report_90_days_due);
                                 $pinkCard = $findPinkCard($worker);
-                                $pinkCardExpiry = $getDateStatus($pinkCard?->expiry_date);
+                                $pinkCardExpiry = $getDateStatus($worker->pink_card_expiry ?: $pinkCard?->expiry_date);
                                 $pinkCardWorkflow = $workflowStatusDefinitions->get(
-                                    $pinkCard?->status ?: 'awaiting_upload',
+                                    $worker->pink_card_status ?: $pinkCard?->status ?: 'awaiting_upload',
                                 );
                                 $passportWorkflow = $workflowStatus($worker, 'PASSPORT', $worker->passport_file);
                                 $wpWorkflow = $workflowStatus($worker, 'WORK_PERMIT', $worker->wp_file);
@@ -338,6 +338,7 @@
                                         class="mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold {{ $visaWorkflow['class'] }}">{{ $visaWorkflow['label'] }}</span>
                                 </td>
                                 <td class="px-4 py-5 text-center">
+                                    <p class="text-xs font-bold text-slate-900">{{ $worker->pink_card_number ?: '-' }}</p>
                                     <p class="text-xs {{ $pinkCardExpiry['class'] }}">{{ $pinkCardExpiry['date'] }}</p>
                                     <span
                                         class="mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold {{ $pinkCardExpiry['badge'] }}">{{ $pinkCardExpiry['label'] }}</span>

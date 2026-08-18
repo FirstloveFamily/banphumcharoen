@@ -27,13 +27,15 @@
                     <div><label class="text-sm font-semibold text-slate-700">เพศ</label><input name="gender" value="{{ old('gender') }}" class="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4"></div>
                     <div><label class="text-sm font-semibold text-slate-700">เลขที่ Passport</label><input name="passport_number" value="{{ old('passport_number') }}" class="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4"></div>
                     <div><label class="text-sm font-semibold text-slate-700">วันหมดอายุ Passport</label><input type="date" name="passport_expiry" value="{{ old('passport_expiry') }}" class="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4"></div>
+                    <div><label class="text-sm font-semibold text-slate-700">เลขบัตรชมพู</label><input name="pink_card_number" value="{{ old('pink_card_number') }}" class="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4"></div>
+                    <div><label class="text-sm font-semibold text-slate-700">วันหมดอายุบัตรชมพู</label><input type="date" name="pink_card_expiry" value="{{ old('pink_card_expiry') }}" class="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4"></div>
                     <div><label class="text-sm font-semibold text-slate-700">เลขที่ Work Permit</label><input name="wp_number" value="{{ old('wp_number') }}" class="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4"></div>
                     <div><label class="text-sm font-semibold text-slate-700">วันหมดอายุ Work Permit</label><input type="date" name="wp_expiry" value="{{ old('wp_expiry') }}" class="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4"></div>
                     <div><label class="text-sm font-semibold text-slate-700">วันหมดอายุ Visa</label><input type="date" name="visa_expiry" value="{{ old('visa_expiry') }}" class="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4"></div>
                     <div><label class="text-sm font-semibold text-slate-700">วันครบกำหนด 90 วัน</label><input type="date" name="report_90_days_due" value="{{ old('report_90_days_due') }}" class="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4"></div>
                 </div>
                 <div class="grid gap-6 md:grid-cols-2">
-                    @foreach(['passport_file' => 'ไฟล์ Passport', 'wp_file' => 'ไฟล์ Work Permit', 'visa_file' => 'ไฟล์ Visa', 'report_90_days_file' => 'ไฟล์ 90 วัน', 'photo_file' => 'รูปถ่าย'] as $field => $label)
+                    @foreach(['passport_file' => 'ไฟล์ Passport', 'pink_card_file' => 'ไฟล์บัตรชมพู', 'wp_file' => 'ไฟล์ Work Permit', 'visa_file' => 'ไฟล์ Visa', 'report_90_days_file' => 'ไฟล์ 90 วัน', 'photo_file' => 'รูปถ่าย'] as $field => $label)
                         <div><label class="text-sm font-semibold text-slate-700">{{ $label }}</label><input type="file" name="{{ $field }}" class="mt-2 block w-full rounded-2xl border border-slate-200 p-3 text-sm"></div>
                     @endforeach
                 </div>

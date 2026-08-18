@@ -39,6 +39,7 @@ class WorkersExport implements FromQuery, ShouldAutoSize, WithHeadings, WithMapp
                         ->orWhere('first_name_en', 'like', "%{$this->keyword}%")
                         ->orWhere('last_name_en', 'like', "%{$this->keyword}%")
                         ->orWhere('passport_number', 'like', "%{$this->keyword}%")
+                        ->orWhere('pink_card_number', 'like', "%{$this->keyword}%")
                         ->orWhere('wp_number', 'like', "%{$this->keyword}%")
                         ->orWhereHas('employer', fn (Builder $employerQuery) => $employerQuery
                             ->where('company_name', 'like', "%{$this->keyword}%"));
@@ -50,6 +51,7 @@ class WorkersExport implements FromQuery, ShouldAutoSize, WithHeadings, WithMapp
                         ->whereBetween('wp_expiry', [$today, $soon])
                         ->orWhereBetween('visa_expiry', [$today, $soon])
                         ->orWhereBetween('passport_expiry', [$today, $soon])
+                        ->orWhereBetween('pink_card_expiry', [$today, $soon])
                         ->orWhereBetween('report_90_days_due', [$today, $soon]);
                 });
             })
@@ -59,6 +61,7 @@ class WorkersExport implements FromQuery, ShouldAutoSize, WithHeadings, WithMapp
                         ->whereDate('wp_expiry', '<', $today)
                         ->orWhereDate('visa_expiry', '<', $today)
                         ->orWhereDate('passport_expiry', '<', $today)
+                        ->orWhereDate('pink_card_expiry', '<', $today)
                         ->orWhereDate('report_90_days_due', '<', $today);
                 });
             })
@@ -73,13 +76,16 @@ class WorkersExport implements FromQuery, ShouldAutoSize, WithHeadings, WithMapp
                 if (isset($legacyColumns[$this->documentExpiry])) {
                     $query->whereDate($legacyColumns[$this->documentExpiry], '<', $today);
                 } elseif ($this->documentExpiry === 'pink_card') {
-                    $query->whereHas('documents', function (Builder $documentQuery) use ($today): void {
-                        $documentQuery
-                            ->whereDate('expiry_date', '<', $today)
-                            ->whereHas('documentMaster', fn (Builder $masterQuery) => $masterQuery
-                                ->where('id', 12)
-                                ->orWhere('name', 'บัตรชมพู')
-                                ->orWhere('code', 'Pink Identification Card for Foreign Workers'));
+                    $query->where(function (Builder $subQuery) use ($today): void {
+                        $subQuery->whereDate('pink_card_expiry', '<', $today)
+                            ->orWhereHas('documents', function (Builder $documentQuery) use ($today): void {
+                                $documentQuery
+                                    ->whereDate('expiry_date', '<', $today)
+                                    ->whereHas('documentMaster', fn (Builder $masterQuery) => $masterQuery
+                                        ->where('id', 12)
+                                        ->orWhere('name', 'บัตรชมพู')
+                                        ->orWhere('code', 'Pink Identification Card for Foreign Workers'));
+                            });
                     });
                 }
             })
@@ -87,7 +93,7 @@ class WorkersExport implements FromQuery, ShouldAutoSize, WithHeadings, WithMapp
             ->when($this->activeStatus === 'inactive', fn (Builder $query) => $query->where('is_active', false));
 
         if ($this->sort === 'nearest_expiry') {
-            $columns = ['passport_expiry', 'wp_expiry', 'visa_expiry', 'report_90_days_due'];
+            $columns = ['passport_expiry', 'pink_card_expiry', 'wp_expiry', 'visa_expiry', 'report_90_days_due'];
             $parts = collect($columns)
                 ->map(fn (string $column): string => "COALESCE({$column}, '9999-12-31')")
                 ->implode(', ');
@@ -96,7 +102,7 @@ class WorkersExport implements FromQuery, ShouldAutoSize, WithHeadings, WithMapp
                 : "min({$parts})";
 
             $query->orderByRaw("{$expression} asc");
-        } elseif (in_array($this->sort, ['passport_expiry', 'wp_expiry', 'visa_expiry', 'report_90_days_due'], true)) {
+        } elseif (in_array($this->sort, ['passport_expiry', 'pink_card_expiry', 'wp_expiry', 'visa_expiry', 'report_90_days_due'], true)) {
             $query->orderByRaw("{$this->sort} is null")->orderBy($this->sort);
         } else {
             $query->orderByDesc('is_active')->orderBy('first_name_th');
@@ -115,6 +121,9 @@ class WorkersExport implements FromQuery, ShouldAutoSize, WithHeadings, WithMapp
             'เลขที่ Passport',
             'วันหมดอายุ Passport',
             'สถานะ Passport',
+            'เลขบัตรชมพู',
+            'วันหมดอายุบัตรชมพู',
+            'สถานะบัตรชมพู',
             'เลขที่ Work Permit',
             'วันหมดอายุ Work Permit',
             'สถานะ Work Permit',
@@ -122,8 +131,6 @@ class WorkersExport implements FromQuery, ShouldAutoSize, WithHeadings, WithMapp
             'สถานะ Visa',
             'วันครบกำหนด 90 วัน',
             'สถานะ 90 วัน',
-            'วันหมดอายุบัตรชมพู',
-            'สถานะบัตรชมพู',
         ];
     }
 
@@ -151,6 +158,11 @@ class WorkersExport implements FromQuery, ShouldAutoSize, WithHeadings, WithMapp
             $worker->passport_number ?: '-',
             $this->formatDate($worker->passport_expiry),
             $this->dateStatus($worker->passport_expiry),
+            $worker->pink_card_number ?: '-',
+            $this->formatDate($worker->pink_card_expiry ?: $pinkCard?->expiry_date),
+            $worker->pink_card_status
+                ? $this->workflowStatus((object) ['status' => $worker->pink_card_status])
+                : $this->workflowStatus($pinkCard),
             $worker->wp_number ?: '-',
             $this->formatDate($worker->wp_expiry),
             $this->dateStatus($worker->wp_expiry),
@@ -158,8 +170,6 @@ class WorkersExport implements FromQuery, ShouldAutoSize, WithHeadings, WithMapp
             $this->dateStatus($worker->visa_expiry),
             $this->formatDate($worker->report_90_days_due),
             $this->dateStatus($worker->report_90_days_due),
-            $this->formatDate($pinkCard?->expiry_date),
-            $this->workflowStatus($pinkCard),
         ];
     }
 

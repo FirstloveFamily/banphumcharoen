@@ -191,6 +191,10 @@
                                     <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">เลข Work Permit</p>
                                     <p class="mt-1.5 font-bold text-slate-900 font-mono">{{ $worker->wp_number ?: '-' }}</p>
                                 </div>
+                                <div>
+                                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">เลขบัตรชมพู</p>
+                                    <p class="mt-1.5 font-bold text-slate-900 font-mono">{{ $worker->pink_card_number ?: '-' }}</p>
+                                </div>
                             </div>
                             <div class="h-px bg-slate-50"></div>
                             <div>
@@ -216,6 +220,7 @@
                             @php
                                 $files = [
                                     ['name' => 'Passport Copy', 'code' => 'PASSPORT', 'file' => $worker->passport_file],
+                                    ['name' => 'บัตรชมพู', 'code' => 'PINK_CARD', 'file' => $worker->pink_card_file],
                                     ['name' => 'Work Permit Copy', 'code' => 'WORK_PERMIT', 'file' => $worker->wp_file],
                                     ['name' => 'Visa Copy', 'code' => 'VISA', 'file' => $worker->visa_file],
                                     ['name' => '90-Days Report', 'code' => 'REPORT_90', 'file' => $worker->report_90_days_file],
@@ -224,7 +229,10 @@
                             @foreach($files as $f)
                                 @php
                                     $legacyDocument = $worker->documents->first(fn ($document) => $document->documentMaster?->code === $f['code']);
-                                    $legacyWorkflow = $workflowLabels[$legacyDocument?->status ?: ($f['file'] ? 'approved' : 'awaiting_upload')];
+                                    $workflowStatus = $f['code'] === 'PINK_CARD'
+                                        ? ($worker->pink_card_status ?: $legacyDocument?->status ?: ($f['file'] ? 'approved' : 'awaiting_upload'))
+                                        : ($legacyDocument?->status ?: ($f['file'] ? 'approved' : 'awaiting_upload'));
+                                    $legacyWorkflow = $workflowLabels[$workflowStatus] ?? $workflowLabels['awaiting_upload'];
                                 @endphp
                                 <div class="flex items-center justify-between rounded-2xl bg-slate-50/50 p-4 border border-slate-100/50">
                                     <div>

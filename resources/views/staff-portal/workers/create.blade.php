@@ -274,6 +274,33 @@
                         </div>
                     </div>
 
+                    <!-- Pink Card -->
+                    <div class="space-y-6">
+                        <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                            <span class="h-1.5 w-1.5 rounded-full bg-pink-600"></span>
+                            Pink Card Information
+                            <span class="text-xs font-medium normal-case tracking-normal text-slate-400">(ไม่บังคับ)</span>
+                        </h4>
+                        <div class="grid gap-6">
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold uppercase tracking-wider text-slate-500">เลขบัตรชมพู</label>
+                                <input type="text" name="pink_card_number" value="{{ old('pink_card_number') }}"
+                                    class="h-12 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-bold font-mono outline-none focus:border-blue-400 focus:bg-white transition-all">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold uppercase tracking-wider text-slate-500">วันหมดอายุบัตรชมพู</label>
+                                <input type="date" name="pink_card_expiry" value="{{ old('pink_card_expiry') }}"
+                                    class="h-12 w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-4 text-sm font-medium outline-none focus:border-blue-400 focus:bg-white transition-all">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold uppercase tracking-wider text-slate-500">แนบไฟล์บัตรชมพู</label>
+                                <input type="file" name="pink_card_file" accept=".pdf,.jpg,.jpeg,.png"
+                                    class="w-full text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 transition-all border border-slate-100 rounded-2xl p-1 bg-slate-50/50">
+                                <p class="text-xs text-amber-600">รูปไม่เกิน 3 MB, ไฟล์เอกสารไม่เกิน 10 MB</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Work Permit -->
                     <div class="space-y-6">
                         <h4 class="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">

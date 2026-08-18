@@ -23,6 +23,7 @@
 
     $dateItems = [
         ['label' => 'Passport', 'date' => $worker->passport_expiry, 'icon' => 'book-open-check'],
+        ['label' => 'บัตรชมพู', 'date' => $worker->pink_card_expiry, 'icon' => 'contact'],
         ['label' => 'Work Permit', 'date' => $worker->wp_expiry, 'icon' => 'badge-check'],
         ['label' => 'Visa', 'date' => $worker->visa_expiry, 'icon' => 'stamp'],
         ['label' => 'รายงาน 90 วัน', 'date' => $worker->report_90_days_due, 'icon' => 'calendar-clock'],
